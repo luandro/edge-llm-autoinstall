@@ -12,6 +12,8 @@ check() {
   }
   printf 'PASS: %-5s %-4s %s\n' "$profile" "$mode" "$expected"
 }
+check pi4 safe 'Qwen3.5 0.8B Q4_K_M'
+check pi4 best 'Qwen3.5 2B Q4_K_M'
 check pi8 safe 'Qwen3.5 2B Q4_K_M'
 check pi8 best 'Qwen3 30B-A3B'
 check pi16 safe 'Qwen3.5 4B Q4_K_M'
@@ -46,3 +48,13 @@ if EDGE_LLM_TEST_PROFILE=k11 bash install.sh --model lfm25 --dry-run >/dev/null 
   echo 'FAILED: unsupported model unexpectedly accepted' >&2; exit 1
 fi
 echo 'PASS: K11 auto-safe default and unsupported-model validation'
+
+# Pi 4 GB must default to safe and reject RAM-heavy context overrides.
+pi4_auto="$(EDGE_LLM_TEST_PROFILE=pi4 bash install.sh --dry-run --model-dir /tmp/edge-llm-ci-models)"
+grep -Fq 'Mode:      safe' <<<"$pi4_auto" || { echo 'FAILED: pi4 auto mode' >&2; exit 1; }
+grep -Fq 'Context:   4096' <<<"$pi4_auto" || { echo 'FAILED: pi4 safe context' >&2; exit 1; }
+if EDGE_LLM_TEST_PROFILE=pi4 bash install.sh --mode best --context 8192 --dry-run >/dev/null 2>&1; then
+  echo 'FAILED: pi4 context should be capped at 4096' >&2; exit 1
+fi
+grep -Fq 'Context:   2048' <<<"$(EDGE_LLM_TEST_PROFILE=pi4 bash install.sh --mode best --dry-run --model-dir /tmp/edge-llm-ci-models)" || { echo 'FAILED: pi4 best context' >&2; exit 1; }
+echo 'PASS: Pi 4GB automatic/safe, best context and memory guard'
