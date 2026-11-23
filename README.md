@@ -5,8 +5,12 @@ One `install.sh` for **Raspberry Pi 5 (4/8/16 GB)**, **Intel N95/N97 (16 GB)** a
 ## Install
 
 ```bash
-bash install.sh
+git clone https://github.com/luandro/edge-llm-autoinstall.git
+cd edge-llm-autoinstall
+bash install.sh --mode safe
 ```
+
+For a first unattended-fleet rollout, start with `--mode safe` rather than `--mode auto`: auto selects experimental best profiles on some machines.
 
 The installer detects supported hardware, explains its plan and requests one approval. On K11, automatic mode deliberately selects the safe model; large full-offload setups are opt-in. It installs `llama.cpp`, downloads one GGUF model and creates a local-only systemd service. Existing models remain on disk when changing profiles.
 
@@ -16,6 +20,33 @@ bash install.sh --mode best      # larger, higher-capability model
 bash install.sh --dry-run        # detection and plan only
 bash install.sh --yes            # no interactive confirmation
 ```
+
+## Use as a Hermes Agent skill
+
+Install the skill **on the machine running Hermes** (not on every target device):
+
+```bash
+hermes skills install https://raw.githubusercontent.com/luandro/edge-llm-autoinstall/main/SKILL.md
+hermes skills list
+```
+
+Or from a Hermes chat:
+
+```text
+/skills install https://raw.githubusercontent.com/luandro/edge-llm-autoinstall/main/SKILL.md
+```
+
+Then ask Hermes:
+
+```text
+/edge-llm-autoinstall Inspect this machine and install the safest local model. Benchmark the Portuguese summary and EN-to-PT-BR translation quality, and report actual settings.
+```
+
+For a remote target, tell Hermes which host to access and give it **authorized SSH/sudo access**. The skill checks the hardware, runs the installer dry-run first, requests approval for changes, verifies the local API and measures real performance before recommending a stronger model. The agent does not need access to your passwords in the repository.
+
+Read [SKILL.md](SKILL.md) for the complete procedure and safeguards. To fetch future improvements, use `hermes skills check` and `hermes skills update edge-llm-autoinstall`. Hermes installs skills through its safety scanner; read the contents before accepting installation.
+
+**Current capabilities:** the installer runs a single local chat/summarization/LLM-translation model. Standalone **pt-BR STT and a dedicated EN→PT-BR translation service are not installed yet**; the skill clearly identifies them as follow-up implementation work.
 
 ## Models
 
@@ -65,13 +96,12 @@ This API listens on `127.0.0.1`, not the LAN. Use an SSH tunnel or private VPN r
 - [Deep research: offline pt-BR speech-to-text, EN→PT-BR translation and summarization](docs/DEEP_RESEARCH_PROMPT.md)
 - [Ryzen 8945HS / Radeon 780M model options and tuning](docs/K11.md)
 
-## Publish on GitHub
+## Development and checks
 
 ```bash
-git init -b main
-git add .
-git commit -m "Add Pi 5, N95/N97 and AMD 8945HS installers"
-gh repo create luandro/edge-llm-autoinstall --public --source . --remote origin --push
+bash -n install.sh
+bash tests/smoke.sh
+python3 scripts/benchmark.py --output benchmark.json  # on a machine with a running server
 ```
 
-The repository must be created once using an authenticated GitHub CLI; the script itself does not require GitHub access.
+Installation is currently validated by shell syntax and hardware-selection dry runs only. Measure actual throughput, prompt latency and model quality on your target before selecting the best profile.
