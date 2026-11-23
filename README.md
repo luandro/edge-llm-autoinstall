@@ -1,6 +1,6 @@
 # Edge LLM Auto Installer
 
-One `install.sh` for **Raspberry Pi 5 (8/16 GB)**, **Intel N95/N97 (16 GB)** and **GMKtec K11 / AMD Ryzen 9 8945HS (32 GB, Radeon 780M)** on Linux with systemd.
+One `install.sh` for **Raspberry Pi 5 (4/8/16 GB)**, **Intel N95/N97 (16 GB)** and **GMKtec K11 / AMD Ryzen 9 8945HS (32 GB, Radeon 780M)** on Linux with systemd.
 
 ## Install
 
@@ -21,10 +21,13 @@ bash install.sh --yes            # no interactive confirmation
 
 | Hardware | Best (`--mode best`) | Safe (`--mode safe`) |
 | --- | --- | --- |
+| **Pi 5, 4 GB** | **Qwen3.5 2B Q4 (~1.28 GB), 2K context** | **Qwen3.5 0.8B Q4 (~0.53 GB), 4K context** |
 | Pi 5, 8 GB | Qwen3 30B-A3B Q3_K_S, SSD-backed experimental | Qwen3.5 2B Q4 |
 | Pi 5, 16 GB | Qwen3.6 35B-A3B CPU-3, very tight on RAM | Qwen3.5 4B Q4 |
 | Intel N95/N97, 16 GB | Qwen3.6 35B-A3B CPU-2, slow on bandwidth-limited CPU | Qwen3.5 4B Q4 |
 | **Ryzen 8945HS, 32 GB** | **Gemma 4 26B-A4B Q4, opt-in GTT capacity** | **Gemma 4 E4B Q4, no kernel tuning** |
+
+The Pi 4 GB automatically selects safe mode; `--mode best` is opt-in. It uses CPU only, builds with 2 parallel jobs and caps context at 4K. See [Pi 5 4 GB notes](docs/PI5_4GB.md).
 
 The Pi 8 GB automatically selects safe mode if it cannot locate usable SSD/NVMe storage; override with `--model-dir` to a mounted SSD. For GPU setups, Vulkan requires Mesa/Vulkan and sufficient GPU-addressable shared system memory (GTT).
 
