@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-command local model installer for Pi 5, Intel N95/N97 and Ryzen 8945HS / Radeon 780M.
+# One-command local model installer for Pi 5 (4/8/16 GB), Intel N95/N97 and Ryzen 8945HS / Radeon 780M.
 set -Eeuo pipefail
 
 APP=edge-llm
@@ -23,14 +23,14 @@ usage() {
 Usage: bash install.sh [--mode auto|best|safe] [--model NAME] [--backend auto|vulkan|cpu]
                        [--gpu-layers N] [--context N] [--model-dir PATH] [--yes] [--dry-run]
 
-  --mode auto       Safer no-tuning K11 model; Pi 8GB without SSD uses safe model
+  --mode auto       Safer on Pi 4GB/K11; Pi 8GB without SSD uses safe model
   --mode best       Highest capability model for detected hardware
   --mode safe       Smaller and more dependable model
   --model NAME      Ryzen 8945HS: gemma4-e4b, gemma4, qwen36, inkling, qwen38, gptoss20b, qwen35-9b
   --backend NAME    Ryzen 8945HS: auto (Vulkan preferred), vulkan, cpu
   --gpu-layers N    Ryzen 8945HS: offload N layers to Radeon iGPU (default 99)
   --context N       Override model context window (512-131072 tokens)
-  --model-dir PATH  Download GGUF weights to PATH (SSD recommended for Pi 8GB best)
+  --model-dir PATH  Download GGUF weights to PATH (SSD needed for Pi 8GB best)
   --yes             Skip the confirmation prompt
   --dry-run         Print the selection and exit without modifications
 
@@ -75,7 +75,8 @@ if [[ -n "${EDGE_LLM_TEST_PROFILE:-}" && "$DRY_RUN" -eq 1 ]]; then
 elif [[ "$ARCH" == aarch64 && "$DEVICE" == *'Raspberry Pi 5'* ]]; then
   if (( MEM_KIB >= 13 * 1024 * 1024 )); then PROFILE=pi16
   elif (( MEM_KIB >= 6 * 1024 * 1024 )); then PROFILE=pi8
-  else fail 'Pi 5 requires at least 8 GB RAM.'; fi
+  elif (( MEM_KIB >= 3 * 1024 * 1024 )); then PROFILE=pi4
+  else fail 'Pi 5 requires at least 4 GB RAM.'; fi
 elif [[ "$ARCH" == x86_64 && ( "$CPU_NAME" =~ (^|[^[:alnum:]])N95([^[:alnum:]]|$) || "$CPU_NAME" =~ (^|[^[:alnum:]])N97([^[:alnum:]]|$) ) ]]; then
   (( MEM_KIB >= 13 * 1024 * 1024 )) || fail 'N95/N97 profile needs approximately 16 GB RAM.'
   PROFILE=nuc16
@@ -85,7 +86,7 @@ elif [[ "$ARCH" == x86_64 && "$CPU_NAME" == *'AMD Ryzen'* && "$CPU_NAME" == *'89
 else
   fail "Unsupported: ${DEVICE:-$CPU_NAME} (~${MEM_GIB} GiB RAM). Supported: Pi 5, N95/N97, Ryzen 8945HS."
 fi
-[[ "$PROFILE" =~ ^(pi8|pi16|nuc16|k11)$ ]] || fail 'Invalid test profile.'
+[[ "$PROFILE" =~ ^(pi4|pi8|pi16|nuc16|k11)$ ]] || fail 'Invalid test profile.'
 if [[ "$PROFILE" != k11 && ( "$MODEL_CHOICE" != auto || "$BACKEND_CHOICE" != auto || "$GPU_LAYERS_GIVEN" -eq 1 ) ]]; then
   fail '--model, --backend and --gpu-layers are for the Ryzen 8945HS profile.'
 fi
@@ -119,7 +120,7 @@ PY
 SSD_MOUNT=''
 if [[ "$PROFILE" == pi8 && "$MODEL_DIR_GIVEN" -eq 0 ]]; then SSD_MOUNT="$(find_fast_storage || true)"; fi
 if [[ "$MODE" == auto ]]; then
-  if [[ "$PROFILE" == k11 ]]; then MODE=safe
+  if [[ "$PROFILE" == k11 || "$PROFILE" == pi4 ]]; then MODE=safe
   elif [[ "$PROFILE" == pi8 && "$MODEL_DIR_GIVEN" -eq 0 && -z "$SSD_MOUNT" ]]; then MODE=safe
   else MODE=best; fi
 fi
@@ -137,6 +138,12 @@ case "$MODEL_DIR" in *$'\n'*|*$'\r'*) fail 'Invalid model directory newline.' ;;
 ENGINE=upstream
 if [[ "$PROFILE" == k11 && "$MODEL_CHOICE" != auto ]]; then MODE=custom; fi
 case "$PROFILE:$MODE" in
+  pi4:safe)
+    MODEL_NAME='Qwen3.5 0.8B Q4_K_M (lightweight)'; HF_REPO='unsloth/Qwen3.5-0.8B-GGUF'; GGUF='Qwen3.5-0.8B-Q4_K_M.gguf'
+    BYTES=533000000; CONTEXT=4096; UBATCH=128 ;;
+  pi4:best)
+    MODEL_NAME='Qwen3.5 2B Q4_K_M (memory-constrained)'; HF_REPO='unsloth/Qwen3.5-2B-GGUF'; GGUF='Qwen3.5-2B-Q4_K_M.gguf'
+    BYTES=1280000000; CONTEXT=2048; UBATCH=128 ;;
   pi8:safe)
     MODEL_NAME='Qwen3.5 2B Q4_K_M'; HF_REPO='unsloth/Qwen3.5-2B-GGUF'; GGUF='Qwen3.5-2B-Q4_K_M.gguf'
     BYTES=1900000000; CONTEXT=4096; UBATCH=256 ;;
@@ -185,12 +192,17 @@ case "$PROFILE:$MODE" in
     UBATCH=256 ;;
 esac
 if [[ -n "$CONTEXT_OVERRIDE" ]]; then CONTEXT="$((10#$CONTEXT_OVERRIDE))"; fi
+if [[ "$PROFILE" == pi4 ]] && (( CONTEXT > 4096 )); then
+  fail 'Pi 5 4 GB supports at most 4096 context tokens in this conservative profile.'
+fi
 CPU_THREADS="$(getconf _NPROCESSORS_ONLN || echo 4)"
 (( CPU_THREADS > 4 )) && CPU_THREADS=4
 (( CPU_THREADS < 1 )) && CPU_THREADS=1
 [[ "$PROFILE" == pi16 && "$MODE" == best ]] && CPU_THREADS=3
 [[ "$PROFILE" != k11 ]] || CPU_THREADS=8
 BATCH_THREADS="$CPU_THREADS"
+BUILD_THREADS="$CPU_THREADS"
+[[ "$PROFILE" != pi4 ]] || BUILD_THREADS=2
 BACKEND=cpu
 [[ "$PROFILE" != k11 ]] || BACKEND="$BACKEND_CHOICE"
 
@@ -217,6 +229,8 @@ if [[ "$PROFILE" == k11 ]]; then
     fi
   fi
   info 'If Vulkan allocation fails, rerun with --gpu-layers 16 or --backend cpu. No kernel/BIOS changes are automatic.'
+elif [[ "$PROFILE" == pi4 ]]; then
+  info '4 GB Pi: keep other applications closed. Best mode uses ~2.75 GB peak RAM in 8 GB Pi measurements; your Pi may require a headless OS.'
 elif [[ "$PROFILE" == pi8 && "$MODE" == best ]]; then
   info 'Experimental SSD-backed inference; speed may not match Potato OS benchmarks.'
 elif [[ "$PROFILE" == pi16 && "$MODE" == best ]]; then
@@ -289,7 +303,7 @@ else
     -DGGML_VULKAN="$VULKAN_CMAKE" -DGGML_CUDA=OFF -DLLAMA_BUILD_SERVER=ON
 fi
 info "Building $BACKEND llama.cpp server"
-cmake --build "$BUILD_DIR" --parallel "$CPU_THREADS" --target llama-server
+cmake --build "$BUILD_DIR" --parallel "$BUILD_THREADS" --target llama-server
 BIN="$BUILD_DIR/bin/llama-server"
 [[ -x "$BIN" ]] || fail "Missing $BIN after build."
 if [[ ! -s "$MODEL_DIR/$GGUF" ]]; then
