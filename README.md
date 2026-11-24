@@ -62,7 +62,7 @@ Read [SKILL.md](SKILL.md) for the complete procedure and safeguards. To fetch fu
 
 *Updated 2026-11-24.* These numbers are for **output generation** (new tokens per second, **tok/s**) on one local request, **not** prompt processing, full agent-task duration, transcription or translation speed. They are planning ranges, not minimum-performance guarantees. They depend on quantization, CPU/memory bandwidth, cooling, context, runtime and GPU offload. A long prompt can take considerably longer to read than the generated answer takes to write.
 
-**Evidence:** **M** = published measurement on the named hardware/model (range around the result); **P** = measurement on closely related hardware or the same Pi 5 CPU with a different RAM size, used as a proxy; **E** = rough estimate without a comparable direct test; **X** = special experimental configuration, not a result reproduced with this installer. **Safe/best** are options supported by the current script; **optional** means *not selectable with the current installer* unless explicitly described as a K11 \`--model\` choice.
+**Evidence:** **M** = published measurement on the named hardware/model (range around the result); **P** = measurement on closely related hardware or the same Pi 5 CPU with a different RAM size, used as a proxy; **E** = rough estimate without a comparable direct test; **X** = special experimental configuration, not a result reproduced with this installer. **Safe/best** are options supported by the current script; **optional** means *not selectable with the current installer* unless explicitly described as a K11 `--model` choice.
 
 | Machine | Model / configuration | Availability | Expected output | Evidence | Most realistic uses |
 | --- | --- | --- | ---: | --- | --- |
@@ -79,11 +79,11 @@ Read [SKILL.md](SKILL.md) for the complete procedure and safeguards. To fetch fu
 | Intel N95/N97, 16 GB | Qwen3.5 4B Q4 | **Safe** | **2–5 tok/s** | P (N100: 3.2) | Better PT-BR writing and summaries; modest coding assistance |
 | Intel N95/N97, 16 GB | Qwen3.6 35B-A3B CPU-2 | **Best / experimental** | **~2–6 tok/s?** | E (no exact N95/N97 test) | Maximum model capability, but long-context agent work may be impractically slow |
 | **K11 / Ryzen 8945HS, 32 GB** | Gemma 4 E4B Q4 (Vulkan) | **Safe / auto** | **18–28 tok/s** | P (other Radeon 780M: ~19–24 without MTP) | Daily chat, writing, short translation and summaries |
-| K11 / 8945HS | gpt-oss 20B MXFP4 (Vulkan) | **\`--model gptoss20b\`** | **20–33 tok/s** | P (other 780M: 28.9) | Tool calls, orchestration and assistant workflows; benchmark correctness |
+| K11 / 8945HS | gpt-oss 20B MXFP4 (Vulkan) | **`--model gptoss20b`** | **20–33 tok/s** | P (other 780M: 28.9) | Tool calls, orchestration and assistant workflows; benchmark correctness |
 | K11 / 8945HS | Gemma 4 26B-A4B Q4 (Vulkan) | **Best; GTT-dependent** | **18–26 tok/s** | P (other 780M: ~23–25 without MTP) | Strong multilingual writing, summaries and EN→PT-BR drafts |
-| K11 / 8945HS | Qwen3.6 35B-A3B Q4 (Vulkan) | **\`--model qwen36\`; GTT-dependent** | **16–28 tok/s** | P (other 780M, differing quants: ~18–33) | Most promising complex coding, reasoning and multi-step agents |
-| K11 / 8945HS | Inkling 2 Mini IQ4_NL (Vulkan) | **\`--model inkling\`; experimental** | **12–18 tok/s** | P (other 780M: ~17, quant unspecified) | English-focused coding; **not** the first choice for PT-BR/factual summaries |
-| K11 / 8945HS | Qwen3.8 27B dense Q4 (Vulkan) | **\`--model qwen38\`; slow** | **3–8 tok/s** | P (other 780M: ~3–8) | Quality comparisons / offline batch work; poor interactive throughput |
+| K11 / 8945HS | Qwen3.6 35B-A3B Q4 (Vulkan) | **`--model qwen36`; GTT-dependent** | **16–28 tok/s** | P (other 780M, differing quants: ~18–33) | Most promising complex coding, reasoning and multi-step agents |
+| K11 / 8945HS | Inkling 2 Mini IQ4_NL (Vulkan) | **`--model inkling`; experimental** | **12–18 tok/s** | P (other 780M: ~17, quant unspecified) | English-focused coding; **not** the first choice for PT-BR/factual summaries |
+| K11 / 8945HS | Qwen3.8 27B dense Q4 (Vulkan) | **`--model qwen38`; slow** | **3–8 tok/s** | P (other 780M: ~3–8) | Quality comparisons / offline batch work; poor interactive throughput |
 | K11 / 8945HS | LFM2.5 24B-A2B Q4 | Research candidate, **not in installer** | **~30–40 tok/s** | P (other 780M reports: ~37–40) | Fast low/mid-complexity task execution; still needs quality/runtime checks |
 
 **Important qualifications:** the Pi 5 **4 GB** rows extrapolate from the same Pi 5 CPU on 8/16 GB boards, not measurements on a 4 GB system. N95/N97 estimates use **N100**, which is related but not identical (RAM type, memory channel and thermal limit matter). All K11 rates come from **other Radeon 780M computers**, often with faster memory or larger GTT. Full offload of a 26–35B MoE on a stock K11 may fail; partial CPU offload can reduce these speeds greatly. The Pi 8 GB 30B result comes from **Potato OS + optimized ik_llama + SSD**, not an end-to-end benchmark of this repo. The K11 numbers are **without MTP speculative decoding** unless stated otherwise; MTP can increase generation speed but is **not enabled** by this installer.
@@ -120,18 +120,18 @@ These are **practical recommendations**, not directly measured task-accuracy ran
 
 The [Pi 5 STT benchmark](https://ai-tier.com/stt) reports **English/German WER**, not Brazilian Portuguese WER. For pt-BR, additionally evaluate [Parakeet pt-BR ONNX fine-tunes](https://huggingface.co/alefiury/parakeet-tdt-0.6b-v3-ptBR-TAGARELA-onnx) against Whisper with real recordings; **TAGARELA-derived weights may inherit non-commercial dataset restrictions** and should not be installed for unrestricted commercial use without license review. [Pi translator](https://github.com/koh43/pi-translator) demonstrates that Pi 5 4 GB needs **sequential loading/unloading** for STT + translation.
 
-For dedicated **EN→PT-BR translation**, the leading small CPU candidate is [OPUS-MT en→pt in CTranslate2 INT8](https://huggingface.co/gow-solucoes/opus-mt-en-pt-ct2), which supports the **\`>>pob<<\` Brazilian Portuguese** target-language tag. **No verified per-device throughput** was found for the Pi 5, N95/N97 or K11, so the README deliberately does not invent translation tok/s. Benchmark actual sentence latency, character/word throughput, chrF/COMET and preservation of names, dates and technical terms. LLM translation tok/s above is **not comparable** with encoder–decoder translation tokens/s.
+For dedicated **EN→PT-BR translation**, the leading small CPU candidate is [OPUS-MT en→pt in CTranslate2 INT8](https://huggingface.co/gow-solucoes/opus-mt-en-pt-ct2), which supports the **`>>pob<<` Brazilian Portuguese** target-language tag. **No verified per-device throughput** was found for the Pi 5, N95/N97 or K11, so the README deliberately does not invent translation tok/s. Benchmark actual sentence latency, character/word throughput, chrF/COMET and preservation of names, dates and technical terms. LLM translation tok/s above is **not comparable** with encoder–decoder translation tokens/s.
 
-**Implementation status:** the current one-script installer still installs **one local text LLM**, not specialized STT, TTS, dedicated NMT, embedding, multi-model orchestration or audio pipelines. The table lists **workload candidates and future integrations**, not currently working endpoints. In particular, \`/v1/audio/transcriptions\`, \`/v1/translate\`, and an audio pipeline are **not available** yet.
+**Implementation status:** the current one-script installer still installs **one local text LLM**, not specialized STT, TTS, dedicated NMT, embedding, multi-model orchestration or audio pipelines. The table lists **workload candidates and future integrations**, not currently working endpoints. In particular, `/v1/audio/transcriptions`, `/v1/translate`, and an audio pipeline are **not available** yet.
 
 ### Measure your own machine
 
-\`\`\`bash
+```bash
 bash install.sh --mode safe --dry-run    # detected plan, no changes
 # After installing, on the target:
 python3 scripts/benchmark.py --output benchmark.json
 curl http://127.0.0.1:8080/v1/models
-\`\`\`
+```
 
 Record exact model file/quantization, backend, number of threads, RAM channels, GPU GTT, context and input length. Compare at least **three warm runs** and measure both prompt processing and generated tok/s before changing the automatic profile. The supplied script tests text tasks; **STT and dedicated translation require separate benchmarks**.
 
