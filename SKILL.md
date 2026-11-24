@@ -112,6 +112,24 @@ If the service fails: `journalctl -u edge-llm -n 120 --no-pager`. Verify `ss` sh
 
 On the target, capture temperature/throttling, peak RAM/swap, GTT usage (K11), model/quantization, backend, CPU threads, context, microbatch, prompt processing, generation tok/s, latency and errors. Use consistent Portuguese transcription/translation/summary samples and compare **factual correctness** (names, numbers, dates, actions) as well as speed. Run at least three warm trials for each candidate; document cold-load delay separately. Never present estimates from another computer as a measured result from this one.
 
+### 4a. Compare multiple models reproducibly (benchmark runner)
+
+For new deployments, upgrades and tool-optimized models, **measure alternatives before changing the production service**. The benchmark runner is independent from `install.sh`: it starts one temporary local `llama-server` at a time, selects an unused loopback port, downloads cached GGUFs in user space, and does not execute any commands suggested by the model. Read `docs/BENCHMARKING.md` first.
+
+```bash
+bash benchmark.sh --dry-run --models small
+bash benchmark.sh --models small --suite quick --runs 1
+bash benchmark.sh --models edge --suite full --runs 3
+# Optional LFM3 base vs Hermes LoRA with explicit model-license review:
+bash benchmark.sh --models adapter --suite full --runs 3
+# Existing single service, no downloading/compilation:
+bash benchmark.sh --server-url http://127.0.0.1:8080 --suite full --runs 3
+```
+
+`small` covers Qwen3.5 0.8B Q4, BotPsy 0.8B Q4, mini-agent-v2 Q4 and Qwen3.5 2B Q4; `edge` adds Qwen3.5 4B and Gemma 4 E4B. `all` includes many very large models; **never run it by default** or silently bypass the download limit. `--yes` is permitted only if the operator explicitly approved cached package/model downloads and unprivileged compilation; there is no sudo/systemd modification in the runner.
+
+Run the full suite on the **actual** Pi/N95/K11 to measure real prompt/decode latency and peak RAM. Cloud Colab CUDA helps compare behavior but **cannot predict ARM, N95/N97 or Radeon Vulkan speeds**. On the physical device, use consistent task/context/backend, and repeat 3× if feasible. Reports are under `reports/<UTC timestamp>/`. Prefer `comparison.csv` and `results.json`; manually inspect PT-BR translations/summaries because the built-in quality scores only check names/terms/fact overlap, not semantic correctness or unsupported claims. Benchmark tool calls are proposals only—**not an end-to-end Hermes execution test**. Never execute model-suggested Bash/Python commands on a real machine during testing.
+
 ### 5. Find the best *stable* settings
 
 - **Pi 5:** CPU only, usually 4 threads (Pi 16 GB best uses 3), low RAM overhead; test 2K versus 4K context. On 4 GB avoid other resident models and aggressive swap. A 16 GB Pi is not faster than an 8 GB Pi simply because it has more RAM.
