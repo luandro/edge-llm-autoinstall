@@ -48,6 +48,32 @@ Read [SKILL.md](SKILL.md) for the complete procedure and safeguards. To fetch fu
 
 **Current capabilities:** the installer runs a single local chat/summarization/LLM-translation model. Standalone **pt-BR STT and a dedicated EN→PT-BR translation service are not installed yet**; the skill clearly identifies them as follow-up implementation work.
 
+## Benchmark all candidate models with one command
+
+```bash
+bash benchmark.sh --dry-run --models small
+bash benchmark.sh --models small --suite quick --runs 1
+bash benchmark.sh --models edge --suite full --runs 3
+```
+
+- **small:** Qwen3.5 0.8B, BotPsy 0.8B, mini-agent-v2 1.5B and Qwen3.5 2B (all Q4).
+- **edge:** those four plus Qwen3.5 4B and Gemma 4 E4B.
+- **adapter:** LFM3 1.7B Q8 unchanged base versus GGUF Hermes LoRA; review LFM license.
+- **large / all:** K11 and Pi experimental large models, requiring `--allow-large` and adequate RAM, storage and explicitly raised download budget.
+- Specify exact candidates: `--models qwen08,botpsy,mini_agent`.
+
+To test the existing installed model without changing it:
+
+```bash
+bash benchmark.sh --server-url http://127.0.0.1:8080 --suite full --runs 3
+```
+
+The runner launches each GGUF sequentially on a localhost-only llama.cpp server. It tests **native tool calls (without executing proposed commands)**, no-tool decisions, synthetic EN→PT-BR translation and PT-BR summaries; saves full JSON, CSV and Markdown reports. It records actual model load time, generation/prompt speed when supported and memory usage. The automated translation/summary scores measure **lexical terms and fact coverage**, not semantic accuracy or hallucinations; review outputs manually.
+
+**[Open benchmark on Google Colab](https://colab.research.google.com/github/luandro/edge-llm-autoinstall/blob/main/notebooks/benchmark_colab.ipynb)** · [Benchmark guide and platform comparisons](docs/BENCHMARKING.md)
+
+In Colab, select a GPU runtime if available and run the notebook cells. Free GPU access is not guaranteed and can be interrupted; start with `small`. Kaggle Notebooks offers another free option. A ChatGPT Pro subscription does **not** itself provide Colab compute. **Cloud GPU results are not hardware benchmarks for the Pi 5, Intel N95/N97 or Radeon 780M K11**; repeat the same test locally for performance claims.
+
 ## Models
 
 | Hardware | Best (`--mode best`) | Safe (`--mode safe`) | Optional **tool-use** model (`--agent-model`) |
@@ -156,7 +182,8 @@ For dedicated **EN→PT-BR translation**, the leading small CPU candidate is [OP
 ```bash
 bash install.sh --mode safe --dry-run    # detected plan, no changes
 # After installing, on the target:
-python3 scripts/benchmark.py --output benchmark.json
+python3 scripts/benchmark.py --output benchmark.json       # existing single-model test
+bash benchmark.sh --models small --suite full --runs 3   # multi-model comparison
 curl http://127.0.0.1:8080/v1/models
 ```
 
