@@ -1,0 +1,405 @@
+{
+  "version": 1,
+  "description": "Synthetic public prompts: tool-selection and brief PT-BR quality checks. No commands are executed.",
+  "cases": [
+    {
+      "id": "tool-read",
+      "category": "tool",
+      "prompt": "Read the existing file /workspace/notes/meeting.md. Do not invent its content.",
+      "expected_tool": "read_file",
+      "expected_arguments": {
+        "path": "/workspace/notes/meeting.md"
+      },
+      "quick": true
+    },
+    {
+      "id": "tool-list",
+      "category": "tool",
+      "prompt": "List the files in /workspace/notes.",
+      "expected_tool": "list_directory",
+      "expected_arguments": {
+        "path": "/workspace/notes"
+      },
+      "quick": true
+    },
+    {
+      "id": "tool-search",
+      "category": "tool",
+      "prompt": "Search /workspace/docs for the exact text \"Mapuera\".",
+      "expected_tool": "search_text",
+      "expected_arguments": {
+        "path": "/workspace/docs",
+        "query": "Mapuera"
+      },
+      "quick": true
+    },
+    {
+      "id": "tool-sum",
+      "category": "tool",
+      "prompt": "Use the calculator to find 18 + 7.",
+      "expected_tool": "calculator",
+      "expected_arguments": {
+        "expression": "18+7"
+      },
+      "quick": true
+    },
+    {
+      "id": "tool-read2",
+      "category": "tool",
+      "prompt": "Open /workspace/data/observations.csv and inspect it.",
+      "expected_tool": "read_file",
+      "expected_arguments": {
+        "path": "/workspace/data/observations.csv"
+      },
+      "quick": false
+    },
+    {
+      "id": "tool-list2",
+      "category": "tool",
+      "prompt": "List /workspace/reports/2026.",
+      "expected_tool": "list_directory",
+      "expected_arguments": {
+        "path": "/workspace/reports/2026"
+      },
+      "quick": false
+    },
+    {
+      "id": "tool-search2",
+      "category": "tool",
+      "prompt": "Find the word \"erosion\" in the files under /workspace/reports.",
+      "expected_tool": "search_text",
+      "expected_arguments": {
+        "path": "/workspace/reports",
+        "query": "erosion"
+      },
+      "quick": false
+    },
+    {
+      "id": "tool-sum2",
+      "category": "tool",
+      "prompt": "Calculate 120 / 8 using the calculator tool.",
+      "expected_tool": "calculator",
+      "expected_arguments": {
+        "expression": "120/8"
+      },
+      "quick": false
+    },
+    {
+      "id": "tool-read3",
+      "category": "tool",
+      "prompt": "Read /workspace/config/settings.json before commenting on its settings.",
+      "expected_tool": "read_file",
+      "expected_arguments": {
+        "path": "/workspace/config/settings.json"
+      },
+      "quick": false
+    },
+    {
+      "id": "tool-list3",
+      "category": "tool",
+      "prompt": "Show the contents of /workspace/maps.",
+      "expected_tool": "list_directory",
+      "expected_arguments": {
+        "path": "/workspace/maps"
+      },
+      "quick": false
+    },
+    {
+      "id": "tool-search3",
+      "category": "tool",
+      "prompt": "Search files in /workspace/field for the exact phrase \"water quality\".",
+      "expected_tool": "search_text",
+      "expected_arguments": {
+        "path": "/workspace/field",
+        "query": "water quality"
+      },
+      "quick": false
+    },
+    {
+      "id": "tool-sum3",
+      "category": "tool",
+      "prompt": "Ask the calculator for 7*9.",
+      "expected_tool": "calculator",
+      "expected_arguments": {
+        "expression": "7*9"
+      },
+      "quick": false
+    },
+    {
+      "id": "pt-read",
+      "category": "tool_pt",
+      "prompt": "Leia o arquivo /workspace/atas/reuniao.txt antes de resumir.",
+      "expected_tool": "read_file",
+      "expected_arguments": {
+        "path": "/workspace/atas/reuniao.txt"
+      },
+      "quick": true
+    },
+    {
+      "id": "pt-list",
+      "category": "tool_pt",
+      "prompt": "Liste os arquivos que existem na pasta /workspace/mapas.",
+      "expected_tool": "list_directory",
+      "expected_arguments": {
+        "path": "/workspace/mapas"
+      },
+      "quick": false
+    },
+    {
+      "id": "pt-search",
+      "category": "tool_pt",
+      "prompt": "Busque a palavra \"igarapé\" nos arquivos de /workspace/registros.",
+      "expected_tool": "search_text",
+      "expected_arguments": {
+        "path": "/workspace/registros",
+        "query": "igarapé"
+      },
+      "quick": false
+    },
+    {
+      "id": "pt-sum",
+      "category": "tool_pt",
+      "prompt": "Utilize a calculadora para descobrir 36 + 18.",
+      "expected_tool": "calculator",
+      "expected_arguments": {
+        "expression": "36+18"
+      },
+      "quick": false
+    },
+    {
+      "id": "pt-read2",
+      "category": "tool_pt",
+      "prompt": "Abra /workspace/transcricoes/entrevista01.txt antes de extrair as decisões.",
+      "expected_tool": "read_file",
+      "expected_arguments": {
+        "path": "/workspace/transcricoes/entrevista01.txt"
+      },
+      "quick": false
+    },
+    {
+      "id": "pt-search2",
+      "category": "tool_pt",
+      "prompt": "Procure a expressão \"saúde indígena\" na pasta /workspace/textos.",
+      "expected_tool": "search_text",
+      "expected_arguments": {
+        "path": "/workspace/textos",
+        "query": "saúde indígena"
+      },
+      "quick": false
+    },
+    {
+      "id": "no-geometry",
+      "category": "no_tool",
+      "prompt": "Without calling a tool, explain in one sentence what a polygon is.",
+      "quick": true
+    },
+    {
+      "id": "no-translate",
+      "category": "no_tool",
+      "prompt": "Translate the word \"river\" to Brazilian Portuguese; do not access files.",
+      "quick": true
+    },
+    {
+      "id": "no-security",
+      "category": "no_tool",
+      "prompt": "Without accessing files or tools, explain why sharing a password in chat is risky.",
+      "quick": false
+    },
+    {
+      "id": "no-numbers",
+      "category": "no_tool",
+      "prompt": "What is the name of the Brazilian Portuguese language code? Answer directly.",
+      "quick": false
+    },
+    {
+      "id": "no-summarize",
+      "category": "no_tool",
+      "prompt": "Resuma a frase fornecida sem consultar arquivos: \"A oficina terminou na sexta-feira.\"",
+      "quick": false
+    },
+    {
+      "id": "no-refuse",
+      "category": "no_tool",
+      "prompt": "You have not seen the contents of /workspace/hidden.txt. Without tools, can you honestly claim its contents? Explain briefly.",
+      "quick": false
+    },
+    {
+      "id": "tr-01",
+      "category": "translation",
+      "prompt": "The team reviewed 18 recordings and agreed to meet on Friday.",
+      "reference": "A equipe revisou 18 gravações e concordou em se reunir na sexta-feira.",
+      "required_terms": [
+        "18",
+        "sexta-feira"
+      ],
+      "quick": true
+    },
+    {
+      "id": "tr-02",
+      "category": "translation",
+      "prompt": "Ana visited Belém in June and delivered three maps.",
+      "reference": "Ana visitou Belém em junho e entregou três mapas.",
+      "required_terms": [
+        "Ana",
+        "Belém",
+        "junho"
+      ],
+      "quick": true
+    },
+    {
+      "id": "tr-03",
+      "category": "translation",
+      "prompt": "Please preserve the name CoMapeo and version 2.4 in the report.",
+      "reference": "Por favor, preserve o nome CoMapeo e a versão 2.4 no relatório.",
+      "required_terms": [
+        "CoMapeo",
+        "2.4"
+      ],
+      "quick": false
+    },
+    {
+      "id": "tr-04",
+      "category": "translation",
+      "prompt": "The river was flooded on Monday, but the road remained open.",
+      "reference": "O rio estava cheio na segunda-feira, mas a estrada permaneceu aberta.",
+      "required_terms": [
+        "segunda-feira"
+      ],
+      "quick": false
+    },
+    {
+      "id": "tr-05",
+      "category": "translation",
+      "prompt": "Isabella will inspect 12 photographs before November 30.",
+      "reference": "Isabella vai inspecionar 12 fotografias antes de 30 de novembro.",
+      "required_terms": [
+        "Isabella",
+        "12",
+        "30"
+      ],
+      "quick": false
+    },
+    {
+      "id": "tr-06",
+      "category": "translation",
+      "prompt": "Do not publish GPS coordinates without consent from the community.",
+      "reference": "Não publique coordenadas de GPS sem consentimento da comunidade.",
+      "required_terms": [
+        "GPS"
+      ],
+      "quick": false
+    },
+    {
+      "id": "tr-07",
+      "category": "translation",
+      "prompt": "The system processed a 45-minute recording offline.",
+      "reference": "O sistema processou uma gravação de 45 minutos sem conexão à internet.",
+      "required_terms": [
+        "45"
+      ],
+      "quick": false
+    },
+    {
+      "id": "tr-08",
+      "category": "translation",
+      "prompt": "The technical workshop covered QGIS, GeoJSON, and four map layers.",
+      "reference": "A oficina técnica abordou QGIS, GeoJSON e quatro camadas de mapa.",
+      "required_terms": [
+        "QGIS",
+        "GeoJSON"
+      ],
+      "quick": false
+    },
+    {
+      "id": "sum-01",
+      "category": "summary",
+      "prompt": "Na reunião, foram revisadas 18 gravações. Três arquivos não tinham marcação de tempo. A equipe decidiu corrigir as três até sexta-feira e manter os dados offline.",
+      "required_terms": [
+        "18",
+        "três",
+        "sexta-feira",
+        "offline"
+      ],
+      "quick": true
+    },
+    {
+      "id": "sum-02",
+      "category": "summary",
+      "prompt": "A oficina ocorreu em Belém por dois dias. Ana entregou cinco mapas. Ficou combinado revisar os nomes dos rios na próxima semana.",
+      "required_terms": [
+        "Belém",
+        "dois",
+        "cinco",
+        "rios"
+      ],
+      "quick": true
+    },
+    {
+      "id": "sum-03",
+      "category": "summary",
+      "prompt": "A equipe instalou três roteadores na comunidade. A conexão ficou instável durante a chuva. Foi decidido testar novas antenas na segunda-feira.",
+      "required_terms": [
+        "três",
+        "chuva",
+        "segunda-feira"
+      ],
+      "quick": false
+    },
+    {
+      "id": "sum-04",
+      "category": "summary",
+      "prompt": "O grupo organizou os dados de 12 entrevistas. Quatro áudios precisam de transcrição. Nenhum material será publicado antes da aprovação dos participantes.",
+      "required_terms": [
+        "12",
+        "quatro",
+        "aprovação"
+      ],
+      "quick": false
+    },
+    {
+      "id": "sum-05",
+      "category": "summary",
+      "prompt": "O encontro discutiu qualidade da água, pesca e transporte. Foram identificadas duas nascentes. A próxima visita está prevista para novembro.",
+      "required_terms": [
+        "água",
+        "duas",
+        "novembro"
+      ],
+      "quick": false
+    },
+    {
+      "id": "sum-06",
+      "category": "summary",
+      "prompt": "A formação apresentou QGIS e CoMapeo. Participaram 14 pessoas. O mapa final terá pontos, linhas e polígonos.",
+      "required_terms": [
+        "QGIS",
+        "CoMapeo",
+        "14",
+        "polígonos"
+      ],
+      "quick": false
+    },
+    {
+      "id": "sum-07",
+      "category": "summary",
+      "prompt": "O relatório tem 20 páginas. Falta revisar a seção de orçamento. A responsável enviará a versão final na terça-feira.",
+      "required_terms": [
+        "20",
+        "orçamento",
+        "terça-feira"
+      ],
+      "quick": false
+    },
+    {
+      "id": "sum-08",
+      "category": "summary",
+      "prompt": "O servidor local tem 16 GB de RAM e não utiliza nuvem. Uma falha foi encontrada na porta 8080. A equipe decidiu reiniciar apenas o serviço de mapas.",
+      "required_terms": [
+        "16",
+        "8080",
+        "mapas"
+      ],
+      "quick": false
+    }
+  ]
+}
