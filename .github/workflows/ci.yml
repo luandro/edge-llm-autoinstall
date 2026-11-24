@@ -9,3 +9,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Syntax and hardware selection
         run: bash tests/smoke.sh
+      - name: Offline benchmark suite tests
+        run: python3 -m unittest discover -s tests -p 'test_benchmark_suite.py' -v
+      - name: Benchmark launcher dry-run and notebook validation
+        run: |
+          bash -n benchmark.sh
+          bash benchmark.sh --dry-run --models small --suite quick
+          python3 -c "import json; p=json.load(open('notebooks/benchmark_colab.ipynb')); assert p['nbformat']==4"
+

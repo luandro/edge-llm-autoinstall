@@ -1,0 +1,7 @@
+# Benchmark scratch data and reproducible reports
+reports/
+.venv-benchmark/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.log
