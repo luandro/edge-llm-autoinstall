@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "models": {
+    "qwen08": {"label":"Qwen3.5 0.8B Q4", "repo":"unsloth/Qwen3.5-0.8B-GGUF", "file":"Qwen3.5-0.8B-Q4_K_M.gguf", "size_gb":0.54,"groups":["small","edge"]},
+    "botpsy": {"label":"BotPsy 0.8B Q4", "repo":"qvac/BotPsy-0.8B-GGUFs", "file":"botpsy-0.8b-q4_k_m-imat.gguf", "size_gb":0.54,"groups":["small","edge"], "chat_template_kwargs":{"enable_thinking":true}},
+    "mini_agent": {"label":"mini-agent-v2 1.5B Q4", "repo":"F-A-I-L/mini-agent-v2-GGUF", "file":"mini-agent-v2-Q4_K_M.gguf", "size_gb":0.99,"groups":["small","edge"]},
+    "qwen2b": {"label":"Qwen3.5 2B Q4", "repo":"unsloth/Qwen3.5-2B-GGUF", "file":"Qwen3.5-2B-Q4_K_M.gguf", "size_gb":1.30,"groups":["small","edge"]},
+    "qwen4b": {"label":"Qwen3.5 4B Q4", "repo":"ggml-org/Qwen3.5-4B-GGUF", "file":"Qwen3.5-4B-Q4_K_M.gguf", "size_gb":3.30,"groups":["edge"]},
+    "gemma_e4b": {"label":"Gemma 4 E4B Q4", "repo":"unsloth/gemma-4-E4B-it-GGUF", "file":"gemma-4-E4B-it-Q4_K_M.gguf", "size_gb":5.00,"groups":["edge"]},
+    "lfm3_base": {"label":"LFM3 1.7B Q8 (base)", "repo":"LiquidAI/LFM3-1.7B-GGUF", "file":"LFM3-1.7B-Q8_0.gguf", "size_gb":1.86,"groups":["adapter"],"license_note":"LFM-1.0 terms require review"},
+    "lfm3_hermes": {"label":"LFM3 1.7B Hermes Q8+LoRA", "repo":"LiquidAI/LFM3-1.7B-GGUF", "file":"LFM3-1.7B-Q8_0.gguf", "size_gb":1.86,"groups":["adapter"],"adapter_repo":"harness-hub/LFM3-1.7B-hermes-GGUF","adapter_file":"LFM3-1.7B-harbor-hermes-lora-F16.gguf","adapter_gb":0.07,"license_note":"LFM-1.0 terms; GGUF LoRA not publisher-benchmarked"},
+    "qwen9b": {"label":"Qwen3.5 9B Q4", "repo":"SoAIHQ/Qwen3.5-9B-GGUF", "file":"Qwen3.5-9B-Q4_K_M.gguf", "size_gb":5.80,"groups":["large"]},
+    "gptoss20b": {"label":"gpt-oss 20B MXFP4", "repo":"ggml-org/gpt-oss-20b-GGUF", "file":"gpt-oss-20b-mxfp4.gguf", "size_gb":12.15,"groups":["large"]},
+    "gemma26": {"label":"Gemma 4 26B-A4B Q4", "repo":"lmstudio-community/gemma-4-26B-A4B-it-GGUF", "file":"gemma-4-26B-A4B-it-Q4_K_M.gguf", "size_gb":16.90,"groups":["large"]},
+    "inkling": {"label":"Inkling 2 Mini IQ4_NL", "repo":"ggml-org/Inkling-2-Mini-GGUF", "file":"Inkling-2-Mini-IQ4_NL.gguf", "size_gb":17.70,"groups":["large"]},
+    "qwen38": {"label":"Qwen3.8 27B Q4", "repo":"ggml-org/Qwen3.8-27B-GGUF", "file":"Qwen3.8-27B-Q4_K_M.gguf", "size_gb":19.50,"groups":["large"]},
+    "qwen36": {"label":"Qwen3.6 35B-A3B Q4", "repo":"unsloth/Qwen3.6-35B-A3B-GGUF", "file":"Qwen3.6-35B-A3B-UD-Q4_K_M.gguf", "size_gb":22.20,"groups":["large"]},
+    "pi30b": {"label":"Qwen3 30B-A3B Q3 SSD", "repo":"byteshape/Qwen3-30B-A3B-Instruct-2507-GGUF", "file":"Qwen3-30B-A3B-Instruct-2507-Q3_K_S-2.66bpw.gguf", "size_gb":10.30,"groups":["large"],"license_note":"Specialized ik_llama.cpp/SSD results not reproduced on standard llama.cpp"}
+  }
+}
