@@ -58,6 +58,83 @@ Read [SKILL.md](SKILL.md) for the complete procedure and safeguards. To fetch fu
 | Intel N95/N97, 16 GB | Qwen3.6 35B-A3B CPU-2, slow on bandwidth-limited CPU | Qwen3.5 4B Q4 |
 | **Ryzen 8945HS, 32 GB** | **Gemma 4 26B-A4B Q4, opt-in GTT capacity** | **Gemma 4 E4B Q4, no kernel tuning** |
 
+### Expected LLM performance by hardware
+
+*Updated 2026-11-24.* These numbers are for **output generation** (new tokens per second, **tok/s**) on one local request, **not** prompt processing, full agent-task duration, transcription or translation speed. They are planning ranges, not minimum-performance guarantees. They depend on quantization, CPU/memory bandwidth, cooling, context, runtime and GPU offload. A long prompt can take considerably longer to read than the generated answer takes to write.
+
+**Evidence:** **M** = published measurement on the named hardware/model (range around the result); **P** = measurement on closely related hardware or the same Pi 5 CPU with a different RAM size, used as a proxy; **E** = rough estimate without a comparable direct test; **X** = special experimental configuration, not a result reproduced with this installer. **Safe/best** are options supported by the current script; **optional** means *not selectable with the current installer* unless explicitly described as a K11 \`--model\` choice.
+
+| Machine | Model / configuration | Availability | Expected output | Evidence | Most realistic uses |
+| --- | --- | --- | ---: | --- | --- |
+| **Pi 5, 4 GB** | Qwen3.5 0.8B Q4 | **Safe / auto** | **12–16 tok/s** | P (Pi 5 16 GB: 15.1) | Quick classification, simple routing, very short drafts; weak for autonomous coding |
+| Pi 5, 4 GB | Qwen3.5 2B Q4, 2K context | **Best** | **6–8 tok/s** | P (Pi 5 8/16 GB: 7.1–7.7) | Better short summaries, basic EN→PT-BR drafts, tiny code changes; watch RAM |
+| **Pi 5, 8 GB** | Qwen3.5 2B Q4 | **Safe** | **7–8 tok/s** | M (8 GB Pi 5: 7.1–7.8) | Lightweight agent/tool calls, short PT-BR summaries and writing |
+| Pi 5, 8 GB | Qwen3.5 4B Q4 | Optional, not in installer | **3–5 tok/s** | P (16 GB Pi 5: 3.4) | Better instruction-following and text quality, but less memory headroom |
+| Pi 5, 8 GB | Qwen3 30B-A3B Q3 + fast SSD | **Best / experimental** | **6–9 tok/s** | X (Potato OS: 8–9) | Higher-capability chat/writing; long prompts and SSD paging are the bottleneck |
+| **Pi 5, 16 GB** | Qwen3.5 4B Q4 | **Safe** | **3–5 tok/s** | M (16 GB Pi 5: 3.4) | Short PT-BR writing, translation via chat, grounded summaries |
+| Pi 5, 16 GB | Gemma 4 E2B Q4 | Optional, not in installer | **6–8 tok/s** | M (16 GB Pi 5: 7.4) | Faster general writing and multilingual responses |
+| Pi 5, 16 GB | Qwen3-Coder 30B-A3B CPU-6 | Optional, not in installer | **7–9 tok/s** | M (publisher: 7.91) | Coding experiments; assess long-prompt latency and tool-call accuracy |
+| Pi 5, 16 GB | Qwen3.6 35B-A3B CPU-3 | **Best / memory-tight** | **4–6 tok/s** | M (publisher: 5.05) | Deeper reasoning and complex writing only if it loads without swapping |
+| **Intel N95/N97, 16 GB** | Qwen3.5 2B Q4 | Optional, not in installer | **6–10 tok/s** | P (N100: 8.3) | Faster small agent tasks and short summaries |
+| Intel N95/N97, 16 GB | Qwen3.5 4B Q4 | **Safe** | **2–5 tok/s** | P (N100: 3.2) | Better PT-BR writing and summaries; modest coding assistance |
+| Intel N95/N97, 16 GB | Qwen3.6 35B-A3B CPU-2 | **Best / experimental** | **~2–6 tok/s?** | E (no exact N95/N97 test) | Maximum model capability, but long-context agent work may be impractically slow |
+| **K11 / Ryzen 8945HS, 32 GB** | Gemma 4 E4B Q4 (Vulkan) | **Safe / auto** | **18–28 tok/s** | P (other Radeon 780M: ~19–24 without MTP) | Daily chat, writing, short translation and summaries |
+| K11 / 8945HS | gpt-oss 20B MXFP4 (Vulkan) | **\`--model gptoss20b\`** | **20–33 tok/s** | P (other 780M: 28.9) | Tool calls, orchestration and assistant workflows; benchmark correctness |
+| K11 / 8945HS | Gemma 4 26B-A4B Q4 (Vulkan) | **Best; GTT-dependent** | **18–26 tok/s** | P (other 780M: ~23–25 without MTP) | Strong multilingual writing, summaries and EN→PT-BR drafts |
+| K11 / 8945HS | Qwen3.6 35B-A3B Q4 (Vulkan) | **\`--model qwen36\`; GTT-dependent** | **16–28 tok/s** | P (other 780M, differing quants: ~18–33) | Most promising complex coding, reasoning and multi-step agents |
+| K11 / 8945HS | Inkling 2 Mini IQ4_NL (Vulkan) | **\`--model inkling\`; experimental** | **12–18 tok/s** | P (other 780M: ~17, quant unspecified) | English-focused coding; **not** the first choice for PT-BR/factual summaries |
+| K11 / 8945HS | Qwen3.8 27B dense Q4 (Vulkan) | **\`--model qwen38\`; slow** | **3–8 tok/s** | P (other 780M: ~3–8) | Quality comparisons / offline batch work; poor interactive throughput |
+| K11 / 8945HS | LFM2.5 24B-A2B Q4 | Research candidate, **not in installer** | **~30–40 tok/s** | P (other 780M reports: ~37–40) | Fast low/mid-complexity task execution; still needs quality/runtime checks |
+
+**Important qualifications:** the Pi 5 **4 GB** rows extrapolate from the same Pi 5 CPU on 8/16 GB boards, not measurements on a 4 GB system. N95/N97 estimates use **N100**, which is related but not identical (RAM type, memory channel and thermal limit matter). All K11 rates come from **other Radeon 780M computers**, often with faster memory or larger GTT. Full offload of a 26–35B MoE on a stock K11 may fail; partial CPU offload can reduce these speeds greatly. The Pi 8 GB 30B result comes from **Potato OS + optimized ik_llama + SSD**, not an end-to-end benchmark of this repo. The K11 numbers are **without MTP speculative decoding** unless stated otherwise; MTP can increase generation speed but is **not enabled** by this installer.
+
+Sources: [Pi 5 measured text models](https://ai-tier.com/devices/raspberry-pi-5/), [Pi 5 8 GB agent benchmark](https://github.com/Jiaming-Liuu/Pi5-LLM), [Potato OS Pi 5 SSD benchmark](https://github.com/potato-os/core), [ByteShape Pi 5 Qwen3.6](https://byteshape.com/blogs/Qwen3.6-35B-A3B/), [ByteShape Pi 5 Qwen3-Coder](https://byteshape.com/blogs/Devstral-Small-2-24B-Instruct-2512/), [N100 16 GB measurements (RigBench)](https://rigbench.hleli.com/), [780M Vulkan measurements](https://github.com/cyberpuffin-digital/amd-ryzen-inference-testing), [780M single-script benchmark](https://github.com/tomasastary/llama-amd-alpine), [780M community reports](https://llamaperf.com/gpu/radeon-780m).
+
+### Which machine and model for which task?
+
+These are **practical recommendations**, not directly measured task-accuracy rankings. The appropriate model depends on whether you prioritize speed, output quality, tool-call reliability or offline memory headroom.
+
+| Task | Pi 5 4 GB | Pi 5 8 GB | Pi 5 16 GB | Intel N95/N97 16 GB | K11 32 GB |
+| --- | --- | --- | --- | --- | --- |
+| **Simple routing / classification** | 0.8B; verify outputs | 2B | 4B or 2B (optional) | 4B; 2B would be faster | E4B; gpt-oss for tools |
+| **Agent orchestration / tool calling** | Very limited; only simple, validated actions | 2B for simple tool calls; 30B SSD experimental | 4B for simple tools; 35B slow experiment | 4B for simple tools; 35B slow experiment | **gpt-oss 20B** for tool workflows; **Qwen3.6 35B** for complex plans |
+| **Coding / software agents** | Tiny edits only with 2B | Small code tasks; 30B SSD experiment | **Qwen3-Coder 30B** (optional); 35B best | 4B for small edits; bigger MoE too slow for most loops | **Qwen3.6 35B**; **Inkling 2 Mini** for English coding |
+| **Writing in Portuguese** | 2B: short/simple | 2B: short drafts; 30B experimental | 4B for routine, 35B for demanding texts | 4B for routine | **Gemma 4 26B-A4B**; E4B for quick drafting |
+| **Summarizing meetings/interviews** | 2B, short chunks, strict fact checks | 2B; chunk long transcripts | 4B routinely; 35B for quality tests | 4B with chunking | **Gemma 4 26B-A4B**; E4B for fast summaries |
+| **English → Brazilian Portuguese** | Dedicated OPUS-MT planned; 2B chat for short text | Dedicated OPUS-MT planned; 2B chat | Dedicated OPUS-MT planned; 4B chat for style | Dedicated OPUS-MT planned; 4B chat | Dedicated OPUS-MT planned for throughput; **Gemma 4 26B** for nuanced language |
+| **Portuguese speech → text** | Whisper tiny/base or Parakeet, **one model at a time** | Parakeet/Whisper + VAD, planned | Parakeet/Whisper + VAD, planned | Parakeet/Whisper + VAD, planned | Parakeet/Whisper + VAD, planned |
+| **Audio → transcript → translated summary** | Sequential stages only, **not implemented** | Sequential stages, **not implemented** | Sequential stages, **not implemented** | Sequential stages, **not implemented** | Sequential/on-demand large models, **not implemented** |
+
+**Reality check for agents:** tok/s is only *generation* speed. Tool-calling accuracy, valid JSON, context quality, prompt-prefill delay and total time per completed task matter more than a high headline figure. Tiny models are better used as classifiers/routers for tightly controlled actions than as unattended multi-step coding agents. A Pi or N95 should not be treated as equivalent to a workstation just because a 30B GGUF can load.
+
+### Speech-to-text and translation: different performance units
+
+**STT is measured using real-time factor (RTF)**: processing seconds / audio seconds. **Lower is better**; RTF 0.10 means about 10× faster than audio playback. These measurements are on a **Pi 5 with 16 GB**, using particular model/runtime builds—not validated pt-BR accuracy, and not measured on N95/N97 or K11.
+
+| Speech model (CPU) | Pi 5 measured RTF | Peak memory | Realistic fit | Notes |
+| --- | ---: | ---: | --- | --- |
+| **Whisper Tiny multilingual** | **0.191** (~5.2× realtime) | ~0.94 GB | Pi 5 4 GB+, N95/N97, K11 | Lightweight fallback; lower accuracy |
+| **Whisper Base multilingual** | **0.365** (~2.7× realtime) | ~1.48 GB | Pi 5 4 GB+, N95/N97, K11 | Better quality tradeoff; verify pt-BR |
+| **Parakeet TDT 0.6B v3 multilingual** | **0.112** (~8.9× realtime) | ~2.22 GB | Pi 5 8/16 GB, N95/N97, K11; *tight on Pi 4 GB* | Excellent general CPU candidate, but test pt-BR and model swapping |
+| **Whisper Small multilingual** | **1.255** (~0.8× realtime) | ~3.68 GB | Pi 5 8/16 GB, N95/N97, K11 | Too large for comfortable concurrent Pi 4 GB use |
+
+The [Pi 5 STT benchmark](https://ai-tier.com/stt) reports **English/German WER**, not Brazilian Portuguese WER. For pt-BR, additionally evaluate [Parakeet pt-BR ONNX fine-tunes](https://huggingface.co/alefiury/parakeet-tdt-0.6b-v3-ptBR-TAGARELA-onnx) against Whisper with real recordings; **TAGARELA-derived weights may inherit non-commercial dataset restrictions** and should not be installed for unrestricted commercial use without license review. [Pi translator](https://github.com/koh43/pi-translator) demonstrates that Pi 5 4 GB needs **sequential loading/unloading** for STT + translation.
+
+For dedicated **EN→PT-BR translation**, the leading small CPU candidate is [OPUS-MT en→pt in CTranslate2 INT8](https://huggingface.co/gow-solucoes/opus-mt-en-pt-ct2), which supports the **\`>>pob<<\` Brazilian Portuguese** target-language tag. **No verified per-device throughput** was found for the Pi 5, N95/N97 or K11, so the README deliberately does not invent translation tok/s. Benchmark actual sentence latency, character/word throughput, chrF/COMET and preservation of names, dates and technical terms. LLM translation tok/s above is **not comparable** with encoder–decoder translation tokens/s.
+
+**Implementation status:** the current one-script installer still installs **one local text LLM**, not specialized STT, TTS, dedicated NMT, embedding, multi-model orchestration or audio pipelines. The table lists **workload candidates and future integrations**, not currently working endpoints. In particular, \`/v1/audio/transcriptions\`, \`/v1/translate\`, and an audio pipeline are **not available** yet.
+
+### Measure your own machine
+
+\`\`\`bash
+bash install.sh --mode safe --dry-run    # detected plan, no changes
+# After installing, on the target:
+python3 scripts/benchmark.py --output benchmark.json
+curl http://127.0.0.1:8080/v1/models
+\`\`\`
+
+Record exact model file/quantization, backend, number of threads, RAM channels, GPU GTT, context and input length. Compare at least **three warm runs** and measure both prompt processing and generated tok/s before changing the automatic profile. The supplied script tests text tasks; **STT and dedicated translation require separate benchmarks**.
+
 The Pi 4 GB automatically selects safe mode; `--mode best` is opt-in. It uses CPU only, builds with 2 parallel jobs and caps context at 4K. See [Pi 5 4 GB notes](docs/PI5_4GB.md).
 
 The Pi 8 GB automatically selects safe mode if it cannot locate usable SSD/NVMe storage; override with `--model-dir` to a mounted SSD. For GPU setups, Vulkan requires Mesa/Vulkan and sufficient GPU-addressable shared system memory (GTT).
