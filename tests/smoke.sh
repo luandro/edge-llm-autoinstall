@@ -58,3 +58,27 @@ if EDGE_LLM_TEST_PROFILE=pi4 bash install.sh --mode best --context 8192 --dry-ru
 fi
 grep -Fq 'Context:   2048' <<<"$(EDGE_LLM_TEST_PROFILE=pi4 bash install.sh --mode best --dry-run --model-dir /tmp/edge-llm-ci-models)" || { echo 'FAILED: pi4 best context' >&2; exit 1; }
 echo 'PASS: Pi 4GB automatic/safe, best context and memory guard'
+
+# Specialized agents are explicitly opt-in on every hardware class; safe/best stay unchanged.
+for profile in pi4 pi8 pi16 nuc16 k11; do
+  for agent in botpsy mini-agent; do
+    out="$(EDGE_LLM_TEST_PROFILE="$profile" bash install.sh --agent-model "$agent" --dry-run --model-dir /tmp/edge-llm-ci-models)"
+    grep -Fq 'Mode:      agent' <<<"$out" || { echo "FAIL: $profile $agent mode"; exit 1; }
+    case "$agent:$profile" in
+      botpsy:pi4) expected='botpsy-0.8b-q4_k_m-imat.gguf'; grep -Fq 'Context:   4096' <<<"$out" || exit 1 ;;
+      botpsy:*) expected='botpsy-0.8b-q8_0.gguf' ;;
+      mini-agent:pi4) expected='mini-agent-v2-Q4_K_M.gguf' ;;
+      mini-agent:*) expected='mini-agent-v2-Q5_K_M.gguf' ;;
+    esac
+    grep -Fq "GGUF:      $expected" <<<"$out" || { echo "FAIL: $profile $agent GGUF filename"; exit 1; }
+    grep -Fq 'API:       http://127.0.0.1:8080/v1' <<<"$out" || { echo "FAIL: $profile $agent API"; exit 1; }
+    echo "PASS: $profile agent=$agent ($expected)"
+  done
+done
+if EDGE_LLM_TEST_PROFILE=k11 bash install.sh --dry-run --agent-model botpsy --model gemma4 >/dev/null 2>&1; then
+  echo 'FAIL: --agent-model and --model should be mutually exclusive'; exit 1
+fi
+if EDGE_LLM_TEST_PROFILE=pi4 bash install.sh --dry-run --agent-model fake >/dev/null 2>&1; then
+  echo 'FAIL: invalid agent should be rejected'; exit 1
+fi
+echo 'PASS: agent model flags and mutually exclusive model selection'

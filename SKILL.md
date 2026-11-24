@@ -57,6 +57,21 @@ Require Linux, systemd, sufficient writable storage, initial internet access for
 
 **Default to safe for first deployment**, especially on headless fleet nodes or machines serving other workloads. `--mode auto` is not uniformly safe: it selects **best** on Pi 16 GB and N95/N97, as well as on Pi 8 GB with detected SSD. Pi 4 GB and K11 select safe automatically. Treat large-model profiles as an opt-in experiment, never a guaranteed fast installation.
 
+### Optional tool-use models, by explicit request only
+
+`bash install.sh --agent-model botpsy` and `--agent-model mini-agent` work on **all supported machines** as experimental alternatives. **BotPsy 0.8B** is an English-first thinking-enabled tool router; **mini-agent-v2 1.5B** is optimized for Bash, Python and small tool calls. On Pi 4 GB the installer uses Q4; on larger devices BotPsy uses Q8 and mini-agent Q5. They **replace**, rather than augment, the one local LLM service. There is no task router, simultaneous model loading or automatic delegation.
+
+Before testing these, read `docs/AGENT_MODELS.md` for the quantified evidence, limits, licenses, safe test plan and rollback. The **LFM3-1.7B Hermes RL LoRA** is documented as a **manual research experiment only**, not an installed option: the authors evaluated a 64K+ context workflow and did not re-evaluate the GGUF adapter. Do not treat an 8K Pi run as equivalent, or promote a specialist as the default PT-BR summarizer/translator.
+
+```bash
+bash install.sh --agent-model botpsy --dry-run
+bash install.sh --agent-model mini-agent --dry-run
+# After approval, select exactly one:
+bash install.sh --agent-model mini-agent
+# Run read-only/sandboxed tool-call tests, including no-tool decisions and PT-BR prompts.
+bash install.sh --mode safe   # restore the general-purpose baseline
+```
+
 K11 optional `--model` choices: `gemma4-e4b`, `gemma4`, `qwen36` (larger agent/coding MoE; ~24 GiB GTT), `inkling` (English-focused, unverified on this K11), `qwen38` (dense, likely slow), `gptoss20b`, `qwen35-9b`. Model and GPU override flags work **only** on K11. Do not apply NVIDIA CUDA/NInfer-all instructions to the AMD 780M.
 
 ### 3. Review, preview, approve once, install
@@ -93,7 +108,7 @@ ss -ltnp | grep ':8080'
 python3 scripts/benchmark.py --output "$HOME/edge-llm-benchmark.json"
 ```
 
-If the service fails: `journalctl -u edge-llm -n 120 --no-pager`. Verify `ss` shows only `127.0.0.1:8080`; do not open it on `0.0.0.0` for convenience. Benchmark tool tests translation, summary and instruction-following **through the LLM chat API**; it does **not** benchmark STT or dedicated NMT.
+If the service fails: `journalctl -u edge-llm -n 120 --no-pager`. Verify `ss` shows only `127.0.0.1:8080`; do not open it on `0.0.0.0` for convenience. Benchmark tool tests translation, summary and instruction-following **through the LLM chat API**; it does **not** benchmark STT or dedicated NMT. It also does **not** benchmark real Hermes tool-calling; for agent profiles use the separate controlled tests specified in `docs/AGENT_MODELS.md`.
 
 On the target, capture temperature/throttling, peak RAM/swap, GTT usage (K11), model/quantization, backend, CPU threads, context, microbatch, prompt processing, generation tok/s, latency and errors. Use consistent Portuguese transcription/translation/summary samples and compare **factual correctness** (names, numbers, dates, actions) as well as speed. Run at least three warm trials for each candidate; document cold-load delay separately. Never present estimates from another computer as a measured result from this one.
 

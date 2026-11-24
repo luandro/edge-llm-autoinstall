@@ -50,13 +50,32 @@ Read [SKILL.md](SKILL.md) for the complete procedure and safeguards. To fetch fu
 
 ## Models
 
-| Hardware | Best (`--mode best`) | Safe (`--mode safe`) |
-| --- | --- | --- |
-| **Pi 5, 4 GB** | **Qwen3.5 2B Q4 (~1.28 GB), 2K context** | **Qwen3.5 0.8B Q4 (~0.53 GB), 4K context** |
-| Pi 5, 8 GB | Qwen3 30B-A3B Q3_K_S, SSD-backed experimental | Qwen3.5 2B Q4 |
-| Pi 5, 16 GB | Qwen3.6 35B-A3B CPU-3, very tight on RAM | Qwen3.5 4B Q4 |
-| Intel N95/N97, 16 GB | Qwen3.6 35B-A3B CPU-2, slow on bandwidth-limited CPU | Qwen3.5 4B Q4 |
-| **Ryzen 8945HS, 32 GB** | **Gemma 4 26B-A4B Q4, opt-in GTT capacity** | **Gemma 4 E4B Q4, no kernel tuning** |
+| Hardware | Best (`--mode best`) | Safe (`--mode safe`) | Optional **tool-use** model (`--agent-model`) |
+| --- | --- | --- | --- |
+| **Pi 5, 4 GB** | **Qwen3.5 2B Q4 (~1.28 GB), 2K context** | **Qwen3.5 0.8B Q4 (~0.53 GB), 4K context** | BotPsy 0.8B Q4 for routing; mini-agent 1.5B Q4 for shell (experimental) |
+| Pi 5, 8 GB | Qwen3 30B-A3B Q3_K_S, SSD-backed experimental | Qwen3.5 2B Q4 | BotPsy 0.8B Q8; mini-agent 1.5B Q5 (experimental) |
+| Pi 5, 16 GB | Qwen3.6 35B-A3B CPU-3, very tight on RAM | Qwen3.5 4B Q4 | mini-agent 1.5B Q5; BotPsy 0.8B Q8 (experimental) |
+| Intel N95/N97, 16 GB | Qwen3.6 35B-A3B CPU-2, slow on bandwidth-limited CPU | Qwen3.5 4B Q4 | mini-agent 1.5B Q5; BotPsy 0.8B Q8 (experimental) |
+| **Ryzen 8945HS, 32 GB** | **Gemma 4 26B-A4B Q4, opt-in GTT capacity** | **Gemma 4 E4B Q4, no kernel tuning** | mini-agent 1.5B Q5; BotPsy 0.8B Q8 (experimental) |
+
+### Optional post-trained models for Hermes and local tools
+
+These are **experimentally selectable**, not new safe/best defaults. They optimize a narrow set of tool tasks and should **not replace** the general models for pt-BR summarization, EN→PT-BR translation or offline STT. See [model research, measured benchmarks, limitations, and validation plan](docs/AGENT_MODELS.md).
+
+| Model | Select | Best fit | Evidence and status |
+| --- | --- | --- | --- |
+| [BotPsy 0.8B](https://huggingface.co/qvac/BotPsy-0.8B-GGUFs), Q4 on Pi 4 GB / Q8 elsewhere | `--agent-model botpsy` | Simple, English-first tool routing and choosing not to call tools | **Publisher's GGUF tests**: BFCL v4 43.5% Q4 / 44.2% Q8. Not Hermes or Pi/N95/K11-tested. Enables its evaluated thinking template. |
+| [mini-agent-v2 1.5B](https://huggingface.co/F-A-I-L/mini-agent-v2), Q4 on Pi 4 GB / Q5 elsewhere | `--agent-model mini-agent` | Bash, Python, tool invocation; guided short tasks | **Author's bf16 tests**: BFCL 86.2% non-live, 65.7% live, Bash 50.3%, Python 66.2%. GGUF quants *not* re-benchmarked; no long autonomous loops. |
+| [LFM3 1.7B Hermes LoRA](https://huggingface.co/harness-hub/LFM3-1.7B-hermes) | **Research only; not automated** | Hermes data-analysis tasks; compare adapter to unchanged base | 78% vs 62% on 150 data tasks; worse on 40 harder repository tasks; author used **64K+ context** and did **not** evaluate GGUF. [Manual test instructions](docs/AGENT_MODELS.md). |
+
+```bash
+bash install.sh --agent-model botpsy --dry-run
+bash install.sh --agent-model botpsy
+bash install.sh --agent-model mini-agent
+bash install.sh --mode safe             # restore general-purpose profile
+```
+
+**What installation does:** changes the **one** active local `edge-llm` service at `127.0.0.1:8080/v1`; it does **not** run simultaneous specialist/general models or set up automatic routing. These specialists use English-oriented training and require real PT-BR/Hermes evaluations before any default promotion. The published scores come from **different benchmark suites** and are not directly comparable with each other or with the safe-model task success.
 
 ### Expected LLM performance by hardware
 
@@ -66,6 +85,8 @@ Read [SKILL.md](SKILL.md) for the complete procedure and safeguards. To fetch fu
 
 | Machine | Model / configuration | Availability | Expected output | Evidence | Most realistic uses |
 | --- | --- | --- | ---: | --- | --- |
+| **Pi 5, 4 GB** | BotPsy 0.8B Q4 (agent) | Optional / experimental | **Unmeasured locally** | Publisher GGUF tool benchmarks | Restricted tool routing; not PT-BR summarization |
+| **Pi 5, 4 GB** | mini-agent-v2 1.5B Q4 (agent) | Optional / experimental | **Unmeasured locally** | Author bf16 task benchmarks | Shell/Python in isolated tests |
 | **Pi 5, 4 GB** | Qwen3.5 0.8B Q4 | **Safe / auto** | **12–16 tok/s** | P (Pi 5 16 GB: 15.1) | Quick classification, simple routing, very short drafts; weak for autonomous coding |
 | Pi 5, 4 GB | Qwen3.5 2B Q4, 2K context | **Best** | **6–8 tok/s** | P (Pi 5 8/16 GB: 7.1–7.7) | Better short summaries, basic EN→PT-BR drafts, tiny code changes; watch RAM |
 | **Pi 5, 8 GB** | Qwen3.5 2B Q4 | **Safe** | **7–8 tok/s** | M (8 GB Pi 5: 7.1–7.8) | Lightweight agent/tool calls, short PT-BR summaries and writing |
@@ -86,6 +107,8 @@ Read [SKILL.md](SKILL.md) for the complete procedure and safeguards. To fetch fu
 | K11 / 8945HS | Qwen3.8 27B dense Q4 (Vulkan) | **`--model qwen38`; slow** | **3–8 tok/s** | P (other 780M: ~3–8) | Quality comparisons / offline batch work; poor interactive throughput |
 | K11 / 8945HS | LFM2.5 24B-A2B Q4 | Research candidate, **not in installer** | **~30–40 tok/s** | P (other 780M reports: ~37–40) | Fast low/mid-complexity task execution; still needs quality/runtime checks |
 
+For the two new agent-model rows, **no generation-speed estimates are supplied**: benchmark output speed, prompt processing, memory and *task completion* on the physical Pi/N95/K11 first. On larger machines the installer uses BotPsy Q8 or mini-agent Q5, but these are still not independently measured there. See [agent evidence](docs/AGENT_MODELS.md).
+
 **Important qualifications:** the Pi 5 **4 GB** rows extrapolate from the same Pi 5 CPU on 8/16 GB boards, not measurements on a 4 GB system. N95/N97 estimates use **N100**, which is related but not identical (RAM type, memory channel and thermal limit matter). All K11 rates come from **other Radeon 780M computers**, often with faster memory or larger GTT. Full offload of a 26–35B MoE on a stock K11 may fail; partial CPU offload can reduce these speeds greatly. The Pi 8 GB 30B result comes from **Potato OS + optimized ik_llama + SSD**, not an end-to-end benchmark of this repo. The K11 numbers are **without MTP speculative decoding** unless stated otherwise; MTP can increase generation speed but is **not enabled** by this installer.
 
 Sources: [Pi 5 measured text models](https://ai-tier.com/devices/raspberry-pi-5/), [Pi 5 8 GB agent benchmark](https://github.com/Jiaming-Liuu/Pi5-LLM), [Potato OS Pi 5 SSD benchmark](https://github.com/potato-os/core), [ByteShape Pi 5 Qwen3.6](https://byteshape.com/blogs/Qwen3.6-35B-A3B/), [ByteShape Pi 5 Qwen3-Coder](https://byteshape.com/blogs/Devstral-Small-2-24B-Instruct-2512/), [N100 16 GB measurements (RigBench)](https://rigbench.hleli.com/), [780M Vulkan measurements](https://github.com/cyberpuffin-digital/amd-ryzen-inference-testing), [780M single-script benchmark](https://github.com/tomasastary/llama-amd-alpine), [780M community reports](https://llamaperf.com/gpu/radeon-780m).
@@ -97,7 +120,7 @@ These are **practical recommendations**, not directly measured task-accuracy ran
 | Task | Pi 5 4 GB | Pi 5 8 GB | Pi 5 16 GB | Intel N95/N97 16 GB | K11 32 GB |
 | --- | --- | --- | --- | --- | --- |
 | **Simple routing / classification** | 0.8B; verify outputs | 2B | 4B or 2B (optional) | 4B; 2B would be faster | E4B; gpt-oss for tools |
-| **Agent orchestration / tool calling** | Very limited; only simple, validated actions | 2B for simple tool calls; 30B SSD experimental | 4B for simple tools; 35B slow experiment | 4B for simple tools; 35B slow experiment | **gpt-oss 20B** for tool workflows; **Qwen3.6 35B** for complex plans |
+| **Agent orchestration / tool calling** | **BotPsy** optional for routing; no unsupervised loops | **mini-agent** optional for short shell/Python; BotPsy routing | **mini-agent** optional; 4B general model for reasoning | **mini-agent** optional; 4B general model for reasoning | **gpt-oss 20B / Qwen3.6** for complex plans; mini-agent for tiny delegated jobs |
 | **Coding / software agents** | Tiny edits only with 2B | Small code tasks; 30B SSD experiment | **Qwen3-Coder 30B** (optional); 35B best | 4B for small edits; bigger MoE too slow for most loops | **Qwen3.6 35B**; **Inkling 2 Mini** for English coding |
 | **Writing in Portuguese** | 2B: short/simple | 2B: short drafts; 30B experimental | 4B for routine, 35B for demanding texts | 4B for routine | **Gemma 4 26B-A4B**; E4B for quick drafting |
 | **Summarizing meetings/interviews** | 2B, short chunks, strict fact checks | 2B; chunk long transcripts | 4B routinely; 35B for quality tests | 4B with chunking | **Gemma 4 26B-A4B**; E4B for fast summaries |
