@@ -70,6 +70,7 @@ for profile in pi4 pi8 pi16 nuc16 k11; do
       mini-agent:pi4) expected='mini-agent-v2-Q4_K_M.gguf' ;;
       mini-agent:*) expected='mini-agent-v2-Q5_K_M.gguf' ;;
     esac
+    grep -Fq "GGUF:      $expected" <<<"$out" || { echo "FAIL: $profile $agent GGUF filename"; exit 1; }
     grep -Fq 'API:       http://127.0.0.1:8080/v1' <<<"$out" || { echo "FAIL: $profile $agent API"; exit 1; }
     echo "PASS: $profile agent=$agent ($expected)"
   done
