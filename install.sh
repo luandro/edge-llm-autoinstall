@@ -7,6 +7,7 @@ HOME_DIR="${HOME}/.local/share/${APP}"
 SOURCE_DIR="${HOME_DIR}/src"
 MODE=auto
 MODEL_CHOICE=auto
+AGENT_CHOICE=none
 BACKEND_CHOICE=auto
 GPU_LAYERS=99
 GPU_LAYERS_GIVEN=0
@@ -20,13 +21,16 @@ info() { printf '\n[edge-llm] %s\n' "$*"; }
 fail() { printf '[edge-llm] ERROR: %s\n' "$*" >&2; exit 1; }
 usage() {
   cat <<'EOF'
-Usage: bash install.sh [--mode auto|best|safe] [--model NAME] [--backend auto|vulkan|cpu]
+Usage: bash install.sh [--mode auto|best|safe] [--agent-model botpsy|mini-agent]
+                       [--model NAME] [--backend auto|vulkan|cpu]
                        [--gpu-layers N] [--context N] [--model-dir PATH] [--yes] [--dry-run]
 
   --mode auto       Safer on Pi 4GB/K11; Pi 8GB without SSD uses safe model
   --mode best       Highest capability model for detected hardware
   --mode safe       Smaller and more dependable model
   --model NAME      Ryzen 8945HS: gemma4-e4b, gemma4, qwen36, inkling, qwen38, gptoss20b, qwen35-9b
+  --agent-model NAME  Optional tool-calling specialist on any device: botpsy, mini-agent
+                       Experimental; never replaces general-purpose safe/best defaults
   --backend NAME    Ryzen 8945HS: auto (Vulkan preferred), vulkan, cpu
   --gpu-layers N    Ryzen 8945HS: offload N layers to Radeon iGPU (default 99)
   --context N       Override model context window (512-131072 tokens)
@@ -41,6 +45,7 @@ while (($#)); do
   case "$1" in
     --mode) (($# >= 2)) || fail 'Missing value for --mode'; MODE="$2"; shift 2 ;;
     --model) (($# >= 2)) || fail 'Missing value for --model'; MODEL_CHOICE="$2"; shift 2 ;;
+    --agent-model) (($# >= 2)) || fail 'Missing value for --agent-model'; AGENT_CHOICE="$2"; shift 2 ;;
     --backend) (($# >= 2)) || fail 'Missing value for --backend'; BACKEND_CHOICE="$2"; shift 2 ;;
     --gpu-layers) (($# >= 2)) || fail 'Missing value for --gpu-layers'; GPU_LAYERS="$2"; GPU_LAYERS_GIVEN=1; shift 2 ;;
     --context) (($# >= 2)) || fail 'Missing value for --context'; CONTEXT_OVERRIDE="$2"; shift 2 ;;
@@ -53,6 +58,10 @@ while (($#)); do
 done
 [[ "$MODE" =~ ^(auto|best|safe)$ ]] || fail 'Mode must be auto, best or safe.'
 [[ "$MODEL_CHOICE" =~ ^(auto|gemma4-e4b|gemma4|inkling|qwen38|qwen36|gptoss20b|qwen35-9b)$ ]] || fail 'Invalid --model selection.'
+[[ "$AGENT_CHOICE" =~ ^(none|botpsy|mini-agent)$ ]] || fail 'Invalid --agent-model selection.'
+if [[ "$AGENT_CHOICE" != none && "$MODEL_CHOICE" != auto ]]; then
+  fail '--agent-model and --model cannot be combined.'
+fi
 [[ "$BACKEND_CHOICE" =~ ^(auto|vulkan|cpu)$ ]] || fail 'Backend must be auto, vulkan or cpu.'
 [[ "$GPU_LAYERS" =~ ^[0-9]+$ ]] || fail 'GPU layers must be a non-negative integer.'
 if [[ -n "$CONTEXT_OVERRIDE" ]]; then
@@ -119,6 +128,7 @@ PY
 }
 SSD_MOUNT=''
 if [[ "$PROFILE" == pi8 && "$MODEL_DIR_GIVEN" -eq 0 ]]; then SSD_MOUNT="$(find_fast_storage || true)"; fi
+if [[ "$AGENT_CHOICE" != none ]]; then MODE=agent; fi
 if [[ "$MODE" == auto ]]; then
   if [[ "$PROFILE" == k11 || "$PROFILE" == pi4 ]]; then MODE=safe
   elif [[ "$PROFILE" == pi8 && "$MODEL_DIR_GIVEN" -eq 0 && -z "$SSD_MOUNT" ]]; then MODE=safe
@@ -138,6 +148,28 @@ case "$MODEL_DIR" in *$'\n'*|*$'\r'*) fail 'Invalid model directory newline.' ;;
 ENGINE=upstream
 if [[ "$PROFILE" == k11 && "$MODEL_CHOICE" != auto ]]; then MODE=custom; fi
 case "$PROFILE:$MODE" in
+  pi4:agent|pi8:agent|pi16:agent|nuc16:agent|k11:agent)
+    # Explicit opt-in. Do not set the general-purpose safe/best models to this.
+    GTT_MIN_GIB=0
+    if [[ "$AGENT_CHOICE" == botpsy ]]; then
+      MODEL_NAME='BotPsy 0.8B (tool selection, experimental)'
+      HF_REPO='qvac/BotPsy-0.8B-GGUFs'
+      if [[ "$PROFILE" == pi4 ]]; then
+        GGUF='botpsy-0.8b-q4_k_m-imat.gguf'; BYTES=529000000
+      else
+        GGUF='botpsy-0.8b-q8_0.gguf'; BYTES=810000000
+      fi
+    elif [[ "$AGENT_CHOICE" == mini-agent ]]; then
+      MODEL_NAME='mini-agent-v2 1.5B (shell/Python, experimental)'
+      HF_REPO='F-A-I-L/mini-agent-v2-GGUF'
+      if [[ "$PROFILE" == pi4 ]]; then
+        GGUF='mini-agent-v2-Q4_K_M.gguf'; BYTES=986000000
+      else
+        GGUF='mini-agent-v2-Q5_K_M.gguf'; BYTES=1130000000
+      fi
+    fi
+    if [[ "$PROFILE" == pi4 ]]; then CONTEXT=4096; UBATCH=128
+    else CONTEXT=8192; UBATCH=256; fi ;;
   pi4:safe)
     MODEL_NAME='Qwen3.5 0.8B Q4_K_M (lightweight)'; HF_REPO='unsloth/Qwen3.5-0.8B-GGUF'; GGUF='Qwen3.5-0.8B-Q4_K_M.gguf'
     BYTES=533000000; CONTEXT=4096; UBATCH=128 ;;
@@ -317,6 +349,11 @@ fi
 GPU_CONFIG='-ngl 0'
 CACHE_CONFIG=''
 BATCH_CONFIG="-ub ${UBATCH}"
+CHAT_CONFIG=''
+if [[ "$AGENT_CHOICE" == botpsy ]]; then
+  # The publisher evaluated the thinking-mode chat template, not the default non-thinking one.
+  CHAT_CONFIG="--chat-template-kwargs $(printf '%q' '{"enable_thinking": true}')"
+fi
 if [[ "$PROFILE" == k11 ]]; then
   if [[ "$BACKEND" == vulkan ]]; then GPU_CONFIG="-ngl ${GPU_LAYERS}"; fi
   CACHE_CONFIG='-fa on -ctk q8_0 -ctv q8_0'
@@ -331,7 +368,7 @@ set -Eeuo pipefail
 exec ${q_bin} -m ${q_model} \\
   --alias edge-llm --host 127.0.0.1 --port 8080 \\
   ${GPU_CONFIG} -t ${CPU_THREADS} --threads-batch ${BATCH_THREADS} -c ${CONTEXT} -np 1 \\
-  ${BATCH_CONFIG} ${CACHE_CONFIG} --jinja
+  ${BATCH_CONFIG} ${CACHE_CONFIG} ${CHAT_CONFIG} --jinja
 EOF
 chmod 755 "$LAUNCH"
 UNIT_TMP="$HOME_DIR/edge-llm.service"
