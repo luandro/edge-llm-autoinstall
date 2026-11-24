@@ -239,8 +239,8 @@ BACKEND=cpu
 [[ "$PROFILE" != k11 ]] || BACKEND="$BACKEND_CHOICE"
 
 printf '\nHardware:  %s | %s | ~%s GiB RAM\n' "$PROFILE" "${DEVICE:-$CPU_NAME}" "$MEM_GIB"
-printf 'Mode:      %s\nModel:     %s\nEngine:    %s llama.cpp\nBackend:   %s\nContext:   %s\nDownload:  ~%s GB\nStorage:   %s\nAPI:       http://127.0.0.1:8080/v1\n' \
-  "$MODE" "$MODEL_NAME" "$ENGINE" "$BACKEND" "$CONTEXT" "$(( (BYTES + 999999999) / 1000000000 ))" "$MODEL_DIR"
+printf 'Mode:      %s\nModel:     %s\nGGUF:      %s\nEngine:    %s llama.cpp\nBackend:   %s\nContext:   %s\nDownload:  ~%s GB\nStorage:   %s\nAPI:       http://127.0.0.1:8080/v1\n' \
+  "$MODE" "$MODEL_NAME" "$GGUF" "$ENGINE" "$BACKEND" "$CONTEXT" "$(( (BYTES + 999999999) / 1000000000 ))" "$MODEL_DIR"
 if [[ "$PROFILE" == k11 ]]; then
   GTT_TOTAL_BYTES="$(for f in /sys/class/drm/card*/device/mem_info_gtt_total; do
     if [[ -r "$f" ]]; then cat "$f"; fi
