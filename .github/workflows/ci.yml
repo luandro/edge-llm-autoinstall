@@ -11,6 +11,14 @@ jobs:
         run: bash tests/smoke.sh
       - name: Offline benchmark suite tests
         run: python3 -m unittest discover -s tests -p 'test_benchmark_suite.py' -v
+      - name: Official Colab CLI orchestration tests (offline; no GPU allocation)
+        run: |
+          python3 -m unittest discover -s tests -p 'test_colab_cli.py' -v
+          bash -n colab-benchmark.sh
+          bash colab-benchmark.sh --dry-run --models small
+          bash colab-benchmark.sh --dry-run --models edge --suite full --runs 3
+      - name: Remote Colab worker syntax
+        run: python3 -m py_compile scripts/colab_benchmark_cli.py scripts/colab_benchmark_job.py
       - name: Benchmark launcher dry-run and notebook validation
         run: |
           bash -n benchmark.sh
