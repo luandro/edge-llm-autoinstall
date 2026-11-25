@@ -48,6 +48,27 @@ Read [SKILL.md](SKILL.md) for the complete procedure and safeguards. To fetch fu
 
 **Current capabilities:** the installer runs a single local chat/summarization/LLM-translation model. Standalone **pt-BR STT and a dedicated EN→PT-BR translation service are not installed yet**; the skill clearly identifies them as follow-up implementation work.
 
+## Run automated GPU benchmarks with the official Colab CLI
+
+**One command, from your terminal or Hermes:**
+
+```bash
+bash colab-benchmark.sh
+```
+
+The wrapper uses Google's [official Colab CLI](https://github.com/googlecolab/google-colab-cli), automatically bootstraps it locally if needed (no sudo), asks you to authenticate on first use, provisions a **T4 GPU**, runs the four-model `small / quick` comparison, downloads a ZIP of JSON/CSV/Markdown results, and **stops the Colab runtime even if a model fails**. It asks once for approval before allocating GPU compute. Free GPU capacity is account- and quota-dependent.
+
+```bash
+bash colab-benchmark.sh --dry-run                 # preview: no cloud calls
+bash colab-benchmark.sh --models small --suite full --runs 3
+bash colab-benchmark.sh --models edge --suite full --runs 3 --gpu L4
+bash colab-benchmark.sh --auth adc --yes         # headless / Hermes, after gcloud login
+```
+
+Results: `reports/colab/<session>/comparison.md` and `results.json`, plus a downloadable ZIP. The remote CUDA runtime is **not** a Pi/N95/K11 hardware benchmark; benchmark locally to assess real inference performance. This is evaluation, **not model fine-tuning**.
+
+See [Colab CLI setup, authentication, GPU quotas, recovery and commands](docs/COLAB_CLI.md).
+
 ## Benchmark all candidate models with one command
 
 ```bash
