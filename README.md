@@ -68,11 +68,11 @@ To test the existing installed model without changing it:
 bash benchmark.sh --server-url http://127.0.0.1:8080 --suite full --runs 3
 ```
 
-The runner launches each GGUF sequentially on a localhost-only llama.cpp server. It tests **native tool calls (without executing proposed commands)**, no-tool decisions, synthetic EN→PT-BR translation and PT-BR summaries; saves full JSON, CSV and Markdown reports. It records actual model load time, generation/prompt speed when supported and memory usage. The automated translation/summary scores measure **lexical terms and fact coverage**, not semantic accuracy or hallucinations; review outputs manually.
+The runner launches each GGUF sequentially on a localhost-only llama.cpp server. It tests **native tool calls (without executing proposed commands)**, no-tool decisions, synthetic EN→PT-BR translation and PT-BR summaries; saves full JSON, CSV and Markdown reports. It records actual model load time, generation/prompt speed when supported and memory usage. The automated translation/summary scores measure **lexical terms and fact coverage**, not semantic accuracy or hallucinations; review outputs manually. **Failed requests and timeouts now count against quality scores**, with a separate response-success rate so unreliable models aren't accidentally ranked highest.
 
 **[Open benchmark on Google Colab](https://colab.research.google.com/github/luandro/edge-llm-autoinstall/blob/main/notebooks/benchmark_colab.ipynb)** · [Benchmark guide and platform comparisons](docs/BENCHMARKING.md)
 
-In Colab, select a GPU runtime if available and run the notebook cells. Free GPU access is not guaranteed and can be interrupted; start with `small`. Kaggle Notebooks offers another free option. A ChatGPT Pro subscription does **not** itself provide Colab compute. **Cloud GPU results are not hardware benchmarks for the Pi 5, Intel N95/N97 or Radeon 780M K11**; repeat the same test locally for performance claims.
+In Colab, select a GPU runtime and run the notebook cells. The notebook now **requires CUDA (`nvidia-smi` + `nvcc`)**, and fails early if a GPU or compiler is unavailable instead of silently benchmarking on CPU. Free GPU access is not guaranteed and can be interrupted; start with `small`, then download the generated report ZIP before the session ends. Kaggle Notebooks offers another free option. A ChatGPT Pro subscription does **not** itself provide Colab compute. **Cloud GPU results are not hardware benchmarks for the Pi 5, Intel N95/N97 or Radeon 780M K11**; repeat the same test locally for performance claims.
 
 ## Models
 
