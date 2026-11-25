@@ -15,6 +15,24 @@ Use this skill when asked to **install, troubleshoot, benchmark, or tune local/o
 
 This skill is a deployment procedure, not a promise that every workload is already implemented. Read the target repository's current `README.md` and `install.sh --help` before any installation.
 
+## Automated cloud benchmark via official Google Colab CLI
+
+For cross-model quality comparisons when the target Pi/N95/K11 cannot efficiently load every model, use the repository's **`colab-benchmark.sh`** wrapper. Read `docs/COLAB_CLI.md` before any paid or quota-consuming runtime allocation.
+
+```bash
+git clone https://github.com/luandro/edge-llm-autoinstall.git
+cd edge-llm-autoinstall
+bash colab-benchmark.sh --dry-run
+# Only after the operator authorizes GPU allocation and OAuth authentication:
+bash colab-benchmark.sh --models small --suite quick
+# Once initial results are verified:
+bash colab-benchmark.sh --models small --suite full --runs 3
+```
+
+The official `google-colab-cli` (Linux/macOS) provisions a T4 by default, forwards the remote benchmark Python script, downloads `reports/colab/<session>/comparison.md` + JSON/CSV in a ZIP, and stops the VM in a `finally` block. It can bootstrap the CLI locally with `uv` or Python 3.12, but **never auto-grant OAuth permissions, secretly allocate compute, or impersonate an account**. A Colab account with available quota is required; ChatGPT subscription does not provide this entitlement. For authorized headless use, perform Google ADC login with proper scopes (see guide) and use `--auth adc --yes` only after explicit approval. Treat a failed stop command as an outstanding billable runtime and alert the operator.
+
+This runs **synthetic proposed-tool-call, translation, and summary tests**; it never executes model-suggested commands. Colab CUDA throughput must never be presented as a Raspberry Pi, Intel N95/N97, or Radeon 780M performance measurement. All 4+ large models require explicit memory/download checks and approval. Do not upload community recordings or private datasets to Colab without consent.
+
 ## Source of Truth and Current Scope
 
 - Public project: https://github.com/luandro/edge-llm-autoinstall
