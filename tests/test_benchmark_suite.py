@@ -7,6 +7,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import unittest.mock
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
 import benchmark_suite as bench
@@ -28,6 +29,23 @@ class Dummy(BaseHTTPRequestHandler):
         self.send_response(200);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(result)));self.end_headers();self.wfile.write(result)
 
 class TestBench(unittest.TestCase):
+    def test_errors_reduce_accuracy(self):
+        rows=[{'category':'tool','correct':True,'metric':1.0,'seconds':1.0},
+              {'category':'tool','correct':False,'metric':0.0,'error':'timeout'},
+              {'category':'translation','metric':1.0,'seconds':1.0},
+              {'category':'translation','metric':0.0,'error':'timeout'}]
+        result=bench.summarize(rows)
+        self.assertEqual(result['tool_correct_rate'],0.5)
+        self.assertEqual(result['translation_score'],0.5)
+        self.assertEqual(result['response_success_rate'],0.5)
+        self.assertEqual(result['tool_n'],2)
+
+    def test_gpu_preflight_does_not_silently_allow_cpu(self):
+        with self.assertRaises(SystemExit):
+            with unittest.mock.patch.object(bench,'choose_backend',return_value='cpu'):
+                bench.main(['--models','small','--dry-run','--require-gpu'])
+
+
     def test_case_bank(self):
         self.assertEqual(len(bench.CASES),40)
         self.assertEqual(sum(c.get('quick',False) for c in bench.CASES),11)
