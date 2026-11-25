@@ -112,7 +112,7 @@ def package() -> None:
     print("REMOTE_RESULTS_ARCHIVE=" + str(ARCHIVE), flush=True)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--models", default="small")
     p.add_argument("--suite", choices=("quick", "full"), default="quick")
@@ -122,7 +122,7 @@ def main() -> int:
     p.add_argument("--allow-large", action="store_true")
     p.add_argument("--allow-hybrid", action="store_true")
     p.add_argument("--git-commit", default="")
-    a = p.parse_args()
+    a = p.parse_args(argv)
     if a.git_commit and not re.fullmatch(r"[0-9a-f]{40}", a.git_commit):
         p.error("--git-commit must be a 40-character SHA")
     if a.runs < 1 or a.runs > 10 or a.context < 512 or a.context > 32768 or a.max_download_gb <= 0:
