@@ -256,6 +256,9 @@ def start_server(binary,path,adapter,entry,port,ctx,backend,gpu_layers,log_file,
         while time.monotonic()-start<deadline:
             if proc.poll() is not None:raise RuntimeError(f'llama-server exited {proc.returncode}; see {log_file}')
             try:
+                health=http_get(f'http://127.0.0.1:{port}/health',timeout=2)
+                if health.get('status') not in ('ok','ready'):
+                    time.sleep(1.5); continue
                 http_get(f'http://127.0.0.1:{port}/v1/models',timeout=2)
                 return proc,log,round(time.monotonic()-start,2)
             except (URLError,TimeoutError,ConnectionError,OSError,ValueError):time.sleep(1.5)
@@ -278,14 +281,18 @@ def stop_server(proc,log):
 
 
 def summarize(records):
+    # Failed requests stay in each accuracy denominator; otherwise a model
+    # that errors on hard cases can appear more accurate than a reliable one.
     ok=[r for r in records if not r.get('error')]
-    result={'attempted':len(records),'successful_responses':len(ok),'errors':len(records)-len(ok)}
+    result={'attempted':len(records),'successful_responses':len(ok),'errors':len(records)-len(ok),
+            'response_success_rate':round(len(ok)/len(records),3) if records else None}
     for category in ('tool','tool_pt','no_tool','translation','summary'):
-        rows=[r for r in ok if r['category']==category]
-        metrics=[r.get('metric') for r in rows if isinstance(r.get('metric'),(int,float))]
+        rows=[r for r in records if r['category']==category]
+        metrics=[r.get('metric',0.0) if not r.get('error') else 0.0 for r in rows]
+        metrics=[v if isinstance(v,(int,float)) else 0.0 for v in metrics]
         result[category+'_n']=len(rows)
         result[category+'_score']=round(statistics.mean(metrics),3) if metrics else None
-    rows=[r for r in ok if r['category'] in ('tool','tool_pt','no_tool')]
+    rows=[r for r in records if r['category'] in ('tool','tool_pt','no_tool')]
     result['tool_total_n']=len(rows)
     result['tool_correct_rate']=round(sum(r.get('correct') is True for r in rows)/len(rows),3) if rows else None
     for name,key in [('median_wall_seconds','seconds'),('median_decode_tps','decode_tps'),('median_prompt_tps','prompt_tps')]:
@@ -300,7 +307,7 @@ def write_reports(out,metadata,results):
     rows=[]
     for name,m in results.items():
         stat=m.get('summary',{});rows.append({'model':name,'status':m.get('status','unknown'),'backend':metadata['hardware']['backend'],
-            'tool_correct_rate':stat.get('tool_correct_rate'),'translation_term_score':stat.get('translation_score'),
+            'tool_correct_rate':stat.get('tool_correct_rate'),'response_success_rate':stat.get('response_success_rate'),'translation_term_score':stat.get('translation_score'),
             'summary_fact_coverage':stat.get('summary_score'),'median_wall_s':stat.get('median_wall_seconds'),
             'median_decode_tps':stat.get('median_decode_tps'),'median_prompt_tps':stat.get('median_prompt_tps'),
             'peak_server_rss_mib':m.get('peak_server_rss_mib'),'load_seconds':m.get('load_seconds'),'error':m.get('error','')})
@@ -308,13 +315,14 @@ def write_reports(out,metadata,results):
         w=csv.DictWriter(f,fieldnames=list(rows[0]) if rows else ['model']);w.writeheader();w.writerows(rows)
     lines=['# Edge AI benchmark comparison','',f"Hardware: {metadata['hardware']['cpu']} | RAM {metadata['hardware']['ram_gb']} GB | backend {metadata['hardware']['backend']}",
        '',f"Suite: {metadata['suite']}, repetitions: {metadata['runs']}, context: {metadata['context']}",'',
-       '| Model | Status | Tool accuracy† | Translation terms‡ | Summary facts‡ | Median s/call | Decode tok/s | Peak RSS MiB |',
-       '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |']
+       '| Model | Status | Response rate | Tool accuracy† | Translation terms‡ | Summary facts‡ | Median s/call | Decode tok/s | Peak RSS MiB |',
+       '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |']
     def fmt(v):return '—' if v is None else f'{v:.2f}' if isinstance(v,(int,float)) else str(v)
     for r in rows:
-        lines.append('| '+' | '.join(str(r['model']) if k=='model' else fmt(r[k]).replace('|','/') for k in ['model','status','tool_correct_rate','translation_term_score','summary_fact_coverage','median_wall_s','median_decode_tps','peak_server_rss_mib'])+' |')
+        lines.append('| '+' | '.join(str(r['model']) if k=='model' else fmt(r[k]).replace('|','/') for k in ['model','status','response_success_rate','tool_correct_rate','translation_term_score','summary_fact_coverage','median_wall_s','median_decode_tps','peak_server_rss_mib'])+' |')
     lines+=['','† Native *single function-call + exact arguments*, including correct no-tool decisions; **no commands executed**.',
       '‡ Translation checks required names/numbers and reference overlap; summary checks lexical fact coverage. **Neither measures full semantic quality or hallucinations. Manual PT-BR review required.**',
+      'Errors and timeouts count as zero in all quality-score denominators. Response rate shows reliability; scores are *not* conditioned on success.',
       'Only compare speeds within **the same hardware/backend/context**. Data from Colab CUDA do not predict Raspberry Pi, Intel N95/N97 or Radeon 780M performance.',
       'Status skipped/error means no valid model measurement. Do not rank on speed without task accuracy.','']
     (out/'comparison.md').write_text('\n'.join(lines),encoding='utf8')
@@ -328,6 +336,7 @@ def args_parser():
     p.add_argument('--suite',choices=['quick','full'],default='quick')
     p.add_argument('--runs',type=int,default=1,help='Repetitions per case. Use 3 for comparisons.')
     p.add_argument('--backend',choices=['auto','cuda','vulkan','cpu'],default='auto')
+    p.add_argument('--require-gpu',action='store_true',help='Fail fast unless CUDA/Vulkan is usable; recommended on cloud GPU notebooks')
     p.add_argument('--gpu-layers',type=int,default=99)
     p.add_argument('--binary',help='Existing llama-server binary (avoids compilation)')
     p.add_argument('--server-url',help='Evaluate an existing OpenAI-compatible server only; no models installed/changed')
@@ -352,6 +361,10 @@ def main(argv=None):
     if a.runs<1 or a.runs>20 or a.context<512 or a.context>131072 or a.max_tokens<64 or a.max_tokens>8192:
         raise SystemExit('Invalid runs, context or max-tokens')
     backend=choose_backend(a.backend)
+    if a.require_gpu and backend == 'cpu':
+        raise SystemExit('GPU required but unavailable: check Runtime > Change runtime type > GPU, nvidia-smi, nvcc, or Vulkan/Mesa. Refusing silent CPU fallback.')
+    if a.require_gpu and backend == 'cuda' and (not shutil.which('nvidia-smi') or not shutil.which('nvcc')):
+        raise SystemExit('CUDA required: nvidia-smi and nvcc must both work. Do not run the cloud comparison on CPU by mistake.')
     hardware=system_info(backend)
     cache=Path(a.cache_dir).expanduser().resolve()
     out=Path(a.output_dir).expanduser().resolve() if a.output_dir else ROOT/'reports'/dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d-%H%M%S')
