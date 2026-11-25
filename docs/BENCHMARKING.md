@@ -1,6 +1,8 @@
 # Comparing local edge models: Pi / N95-N97 / K11 / cloud
 
-Run the **same** synthetic tasks on each model. Start with a small set, then use the full suite. The runner uses temporary localhost `llama-server` instances, one at a time, and **never executes a model's proposed commands**. It does not modify systemd, kernel, BIOS, or other running services.
+Run the **same** synthetic tasks on each model. Start with a small set, then use the full suite. The runner uses temporary localhost `llama-server` instances, one at a time, and **never executes a model's proposed commands**.
+
+**Reliability:** request errors and timeouts are now counted as **zero** in task-score denominators, rather than excluded. Comparison reports also show **response success rate**, preventing an error-prone model from appearing artificially accurate. It does not modify systemd, kernel, BIOS, or other running services.
 
 ## One command
 
@@ -21,6 +23,18 @@ bash benchmark.sh --models lfm3_base,lfm3_hermes --suite full --runs 3
 
 **Requirements:** Linux, Python 3.10+, git, cmake, C/C++ compiler and libcurl development headers to compile llama.cpp, sufficient storage and Internet for downloading public GGUFs. `benchmark.sh` installs only `huggingface_hub` in a project-local venv if missing. It does **not** use `sudo`. You can instead provide a precompiled `--binary /path/to/llama-server`. On Raspberry Pi or a mini PC it auto-detects CPU; on a Colab GPU with CUDA Toolkit (`nvcc`), it builds CUDA. For Radeon 780M/Mesa use `--backend vulkan` after installing Vulkan compiler and runtime dependencies.
 
+### Free Colab preflight and results
+
+Colab runtimes are ephemeral: runtime resets discard local weights and unsaved reports. The [notebook](../notebooks/benchmark_colab.ipynb) now **requires a GPU**, checks that both `nvidia-smi` and `nvcc` are present, and explicitly runs `--backend cuda --require-gpu`. This prevents a missing CUDA toolkit from silently launching a many-hour CPU benchmark. If the preflight fails, switch Colab to a GPU runtime and reconnect; if `nvcc` is missing, use a compatible CUDA toolkit/runtime instead of interpreting CPU throughput as a GPU result. No free accelerator or fixed Colab quota is guaranteed.
+
+Start with **quick, one repetition**; only increase to `--suite full --runs 3` after the first comparison succeeds. Each model is loaded sequentially, and the runner writes reports after each model. The notebook's last cell generates and **downloads a ZIP containing JSON, CSV and Markdown reports**, excluding verbose server logs. Download them before disconnecting. If a GPU runtime ends mid-run, previously completed models' reports remain on the runtime's disk but **will be lost when the runtime is deleted unless downloaded**. Model comparisons should be repeated on the same GPU/backend for valid throughput comparisons.
+
+For CLI cloud hosts with a functioning CUDA toolkit:
+
+```bash
+bash benchmark.sh --models small --suite quick --runs 1 --backend cuda --require-gpu --yes
+```
+
 **On the target that already has the installed `edge-llm` service:** compare the current configuration without switching models or downloading anything:
 
 ```bash
@@ -36,7 +50,7 @@ The runner uses `--server-model edge-llm` by default for an existing API; on man
 - **Summarization:** eight short synthetic PT-BR excerpts, measures whether specified facts appear in the text. **Not factuality verification**; review hallucinations manually.
 - **Speed:** per-call wall time, llama.cpp-reported prompt/decode tok/s when available, model load time, process peak RSS, generated tokens, model/backend/hardware metadata and error records. Does not measure actual Hermes autonomous coding, STT WER or audio translation. No speculative time-to-first-token metric is made up.
 
-The **quick** suite uses 11 representative test requests and the **full** suite all 40. Use three warm repetitions per model when choosing defaults. Large throughput differences on different backends do **not** establish that a Pi or Radeon 780M will achieve CUDA speed.
+The **quick** suite uses 11 representative test requests and the **full** suite all 40. **Timeouts and failed responses count against each task's accuracy score**; speed medians use only successful responses and must be viewed alongside the reported success rate. Use three warm repetitions per model when choosing defaults. Large throughput differences on different backends do **not** establish that a Pi or Radeon 780M will achieve CUDA speed.
 
 ## Results
 
