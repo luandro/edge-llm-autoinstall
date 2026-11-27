@@ -70,7 +70,9 @@ mapfile -t revisions < "$cache/sources.lock"
 [[ "${revisions[0]}" =~ ^[0-9a-f]{40}$ && "${revisions[1]}" =~ ^[0-9a-f]{40}$ ]] || exit 1
 # Resolve actual multiarch base manifest; record/pin digest rather than floating tag.
 if [[ ! -f "$cache/base.lock" ]]; then
-  digest="$(docker buildx imagetools inspect debian:bookworm-slim | awk '$1=="Digest:" {print $2; exit}')"
+  # Do not `exit` inside awk: closing the pipe early sends SIGPIPE to buildx,
+  # which fails the substitution under `set -o pipefail`.
+  digest="$(docker buildx imagetools inspect debian:bookworm-slim | awk '$1=="Digest:" && !seen {print $2; seen=1}')"
   [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo 'Could not resolve base digest.'; exit 1; }
   printf 'debian:bookworm-slim@%s\n' "$digest" > "$cache/base.lock"
 fi
