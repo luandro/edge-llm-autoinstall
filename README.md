@@ -21,6 +21,19 @@ bash install.sh --dry-run        # detection and plan only
 bash install.sh --yes            # no interactive confirmation
 ```
 
+## Offline USB deployment
+
+Prepare one mounted USB on each distinct hardware/OS profile while online; then install from its committed repo-* checkout on a matching target:
+
+```bash
+bash prepare-usb.sh --usb /media/$USER/WORKSHOP
+# On target, from USB checkout:
+bash install.sh --offline --mode safe
+bash install-stt.sh
+```
+
+Automatic USB detection, explicit --usb PATH, strict --offline and --online bypass are supported. USB v1 includes safe CPU prebuilt executables, weights, SHA256 manifests, and optional multilingual Whisper CLI; no target downloads or build. Requires matching 64-bit Linux runtime and CPU; real hardware validation pending. [Workshop guide, Hermes cloud providers, acceptance gates](docs/WORKSHOP_USB.md).
+
 ## Use as a Hermes Agent skill
 
 Install the skill **on the machine running Hermes** (not on every target device):
@@ -46,7 +59,7 @@ For a remote target, tell Hermes which host to access and give it **authorized S
 
 Read [SKILL.md](SKILL.md) for the complete procedure and safeguards. To fetch future improvements, use `hermes skills check` and `hermes skills update edge-llm-autoinstall`. Hermes installs skills through its safety scanner; read the contents before accepting installation.
 
-**Current capabilities:** the installer runs a single local chat/summarization/LLM-translation model. Standalone **pt-BR STT and a dedicated EN→PT-BR translation service are not installed yet**; the skill clearly identifies them as follow-up implementation work.
+**Current capabilities:** the installer runs a single local chat/summarization/LLM-translation model. Optional offline Whisper CLI is available; an STT API and dedicated EN→PT-BR translation service are not installed yet; the skill clearly identifies them as follow-up implementation work.
 
 ## Relationship to local-hermes
 

@@ -1,10 +1,10 @@
 ---
 name: edge-llm-autoinstall
 description: Deploy and benchmark offline AI on Pi 5, N95/N97 and K11
-compatibility: Hermes Agent with terminal or SSH access to Linux with systemd; internet needed for initial model downloads.
+compatibility: Hermes Agent with terminal or SSH access to Linux with systemd; internet for online installs; matching prepared USB for offline safe deployment.
 metadata:
   author: luandro
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Edge AI Fleet Installer
@@ -39,11 +39,17 @@ This runs **synthetic proposed-tool-call, translation, and summary tests**; it n
 - Installer: `install.sh`; tests: `tests/smoke.sh`; text benchmark: `scripts/benchmark.py`.
 - Read the matching reference in the checkout: `docs/K11.md`, `docs/PI5_4GB.md`, `docs/TASK_RESEARCH_NOTES.md`, and other `docs/` research when relevant. Treat benchmark estimates as **unverified on the target** until measured.
 - **Currently implemented:** one GGUF LLM via `llama.cpp` (or experimental `ik_llama.cpp` on Pi 8 GB best), installed as `edge-llm.service`, OpenAI-compatible chat at `http://127.0.0.1:8080/v1`, model ID `edge-llm`, localhost only.
-- **Not implemented yet:** transcription endpoint, dedicated STT engine, dedicated neural translation engine, unified multi-model pipeline, automated model unloading or benchmark-based tuning. Do not claim they work or invent `--task`/`--tasks` flags. Request an implementation task before modifying this repository to add them.
+- **Optional USB-only Whisper CLI is implemented (hardware validation pending). Not implemented yet:** transcription endpoint, dedicated neural translation engine, unified multi-model pipeline, automated model unloading or benchmark-based tuning. Do not claim they work or invent `--task`/`--tasks` flags. Request an implementation task before modifying this repository to add them.
 
 ## Live lab transfer and hardware readiness
 
 Read [docs/LOCAL_HERMES_TRANSFER.md](docs/LOCAL_HERMES_TRANSFER.md) before experimenting with LFM3, Laya or ARM backends. The separate [local-hermes](https://github.com/luandro/local-hermes) repo is the active ThinkPad test lab. Transfer reproducible findings with their evidence status; do not promote defaults based on ThinkPad or third-party Pi measurements. The Q4 LFM3 base/adapter pair is benchmark-only, not an installer flag. Keep Pi 4 GB context cap and safe defaults; a 2K–4K standalone model test is not a full Hermes test. Collect memory PSI, RSS, major faults, swap deltas and thermal metrics where available. Never automatically adjust kernel or swap settings or load multiple neural models at once on 4 GB. Laya and multi-model scheduling remain unimplemented here.
+
+## USB-first workshop procedure (prefer when media is available)
+
+Read `docs/WORKSHOP_USB.md`. On the target, inspect mounted disks with `lsblk -o NAME,SIZE,TRAN,FSTYPE,MOUNTPOINTS`. Use the committed repo-* checkout inside edge-llm-usb, not git clone/pull. Never format or mount arbitrary devices. Preview `bash install.sh --offline --usb /actual/mount --mode safe --dry-run`; request approval before executing without --dry-run. USB v1 is safe CPU only, never falls back online; missing or corrupt bundles must stop. Install local Whisper CLI with `bash install-stt.sh --usb /actual/mount` if bundled. Test `~/.local/bin/edge-transcribe -l pt -f sample.wav` with authorized 16 kHz mono PCM WAV. Avoid concurrent LLM/STT on 4GB Pi; ask before stopping/restarting services. Test existing API with `bash benchmark.sh --server-url http://127.0.0.1:8080 --suite quick --runs 1` (no model downloads). Translation remains via local LLM, not dedicated NMT.
+
+Cloud-assisted Hermes requires WAN during installation. Do not send confidential files, credentials, raw transcripts or secret shell output to any provider. After disconnecting WAN, use direct local services; switch Hermes to local inference only after testing context, tool calling and memory. Disable cloud auxiliary providers/fallback before privacy-sensitive work.
 
 ## Procedure
 
@@ -65,7 +71,7 @@ command -v systemctl && command -v sudo
 
 For Pi: `vcgencmd get_throttled` and `vcgencmd measure_temp` if available. For K11: `vulkaninfo --summary`, `cat /sys/class/drm/card*/device/mem_info_gtt_total 2>/dev/null`, and `sudo dmidecode -t memory` **only with permission** to check channel population, configured DDR speed and GTT. Note actual RAM, storage medium, kernel/Mesa versions, CPU governor, temperature, and free disk. Do not infer dual-channel from total GB alone.
 
-Require Linux, systemd, sufficient writable storage, initial internet access for packages and model downloads, and ability to run authorized sudo. Use Raspberry Pi OS **64-bit** and active cooling on Pi. A remote target must be reachable through an authorized SSH tunnel/VPN, not a public unauthenticated API.
+Require Linux, systemd, sufficient writable storage, initial internet access for online installation OR a matching prepared USB, and ability to run authorized sudo. Use Raspberry Pi OS **64-bit** and active cooling on Pi. A remote target must be reachable through an authorized SSH tunnel/VPN, not a public unauthenticated API.
 
 ### 2. Choose a safe starting point
 
@@ -119,7 +125,7 @@ bash install.sh --model qwen36 --backend auto
 bash install.sh --model inkling --gpu-layers 16
 ```
 
-`--model-dir /absolute/path` directs weights to a mounted disk. For Pi 8 GB `--mode best`, first ensure **SSD/NVMe** with ≥13 GB free and verify that the weights actually live there; microSD paging is not equivalent. On Pi 4 GB use `--mode safe` first; keep other services small and do not raise context above the installer's 4K cap. The script compiles locally, downloads GGUF weights and creates a persistent local-only `edge-llm.service`. Do **not** claim the install is complete until the service and an inference request work.
+`--model-dir /absolute/path` directs weights to a mounted disk. For Pi 8 GB `--mode best`, first ensure **SSD/NVMe** with ≥13 GB free and verify that the weights actually live there; microSD paging is not equivalent. On Pi 4 GB use `--mode safe` first; keep other services small and do not raise context above the installer's 4K cap. Online installation compiles and downloads; USB installation copies verified prebuilt artifacts. Both create a persistent local-only `edge-llm.service`. Do **not** claim the install is complete until the service and an inference request work.
 
 ### 4. Verify functionality and measure real performance
 
@@ -164,7 +170,7 @@ Run the full suite on the **actual** Pi/N95/K11 to measure real prompt/decode la
 
 - **Summarization now:** use `/v1/chat/completions` with a Portuguese prompt; chunk long transcriptions to fit context and preserve timestamps and factual details. Compare answers using `scripts/benchmark.py`.
 - **EN→PT-BR now:** LLM translation through chat can be tested; there is no dedicated `/v1/translate` endpoint. The planned lightweight translator is CTranslate2 INT8 + OPUS-MT, with explicit Brazilian Portuguese evaluation.
-- **pt-BR STT not yet installed:** candidates include Parakeet TDT 0.6B v3 multilingual ONNX INT8 + Silero VAD, or CPU `whisper.cpp` / faster-whisper. TAGARELA pt-BR derivatives have possible **non-commercial** upstream dataset restrictions; never auto-install those for an unrestricted/commercial workflow. NLLB distilled models also need license review.
+- **pt-BR STT:** USB CLI uses multilingual Whisper base; benchmark on target. Additional research candidates include Parakeet TDT 0.6B v3 multilingual ONNX INT8 + Silero VAD, or CPU `whisper.cpp` / faster-whisper. TAGARELA pt-BR derivatives have possible **non-commercial** upstream dataset restrictions; never auto-install those for an unrestricted/commercial workflow. NLLB distilled models also need license review.
 - For future multi-stage audio → STT → translate → summarize on 4/8 GB machines, unload one model before loading the next, preserve timestamped text between stages and verify peak RSS. Do not promise a working pipeline until it is implemented and end-to-end tested in the repository.
 
 ## Pitfalls and Recovery

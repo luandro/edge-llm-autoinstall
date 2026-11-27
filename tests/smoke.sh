@@ -82,3 +82,30 @@ if EDGE_LLM_TEST_PROFILE=pi4 bash install.sh --dry-run --agent-model fake >/dev/
   echo 'FAIL: invalid agent should be rejected'; exit 1
 fi
 echo 'PASS: agent model flags and mutually exclusive model selection'
+
+# USB fixtures; no network or real device.
+for f in prepare-usb.sh install-stt.sh scripts/usb-common.sh; do bash -n "$f"; done
+source scripts/usb-common.sh
+tmp="$(mktemp -d)"
+trap 'rm -rf -- "$tmp"' EXIT
+root="$tmp/USB space/edge-llm-usb"
+mkdir -p "$root"
+touch "$root/.edge-llm-usb-v1"
+[[ "$(usb_root "$tmp/USB space")" == "$root" ]]
+[[ "$(usb_select "$root" 1 1 "$PWD")" == "$root" ]]
+if usb_select "$tmp/missing" 1 1 "$PWD"; then exit 1; fi
+model=Qwen3.5-0.8B-Q4_K_M.gguf
+bundle="$root/llm/$(usb_platform)/pi4/$model"
+mkdir -p "$bundle"
+printf 'fake binary' > "$bundle/llama-server"
+printf 'GGUF fixture' > "$bundle/$model"
+(cd "$bundle" && sha256sum llama-server "$model" > SHA256SUMS)
+usb_check "$bundle" llama-server "$model"
+out="$(EDGE_LLM_TEST_PROFILE=pi4 bash install.sh --offline --usb "$root" --dry-run)"
+grep -Fq 'Offline USB:' <<<"$out"
+grep -Fq 'Mode:      safe' <<<"$out"
+if EDGE_LLM_TEST_PROFILE=pi4 bash install.sh --offline --usb "$root" --mode best --dry-run; then exit 1; fi
+if EDGE_LLM_TEST_PROFILE=pi8 bash install.sh --offline --usb "$root" --dry-run; then exit 1; fi
+printf 'corruption' >> "$bundle/$model"
+if usb_check "$bundle" llama-server "$model"; then exit 1; fi
+echo 'PASS: USB selection, profile matching, corruption rejection'

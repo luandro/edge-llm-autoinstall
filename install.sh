@@ -16,6 +16,13 @@ MODEL_DIR=""
 MODEL_DIR_GIVEN=0
 YES=0
 DRY_RUN=0
+USB_PATH=""
+OFFLINE=0
+ONLINE=0
+EXPORT_USB=""
+USB_ROOT=""
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$REPO_DIR/scripts/usb-common.sh"
 
 info() { printf '\n[edge-llm] %s\n' "$*"; }
 fail() { printf '[edge-llm] ERROR: %s\n' "$*" >&2; exit 1; }
@@ -37,6 +44,10 @@ Usage: bash install.sh [--mode auto|best|safe] [--agent-model botpsy|mini-agent]
   --model-dir PATH  Download GGUF weights to PATH (SSD needed for Pi 8GB best)
   --yes             Skip the confirmation prompt
   --dry-run         Print the selection and exit without modifications
+  --usb PATH        Use prepared USB (implies --offline)
+  --offline         Require USB; no downloads, package manager or compile
+  --online          Ignore USB and use original online path
+  --export-usb PATH Internal: prepare safe CPU bundle without enabling service
 
 All servers use local http://127.0.0.1:8080/v1 and model id edge-llm.
 EOF
@@ -52,10 +63,31 @@ while (($#)); do
     --model-dir) (($# >= 2)) || fail 'Missing value for --model-dir'; MODEL_DIR="$2"; MODEL_DIR_GIVEN=1; shift 2 ;;
     --yes|-y) YES=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
+    --usb) (($# >= 2)) || fail 'Missing USB path'; USB_PATH="$2"; OFFLINE=1; shift 2 ;;
+    --offline) OFFLINE=1; shift ;;
+    --online) ONLINE=1; shift ;;
+    --export-usb) (($# >= 2)) || fail 'Missing export path'; EXPORT_USB="$2"; shift 2 ;;
     --help|-h) usage; exit 0 ;;
     *) fail "Unknown argument: $1" ;;
   esac
 done
+if (( ONLINE && OFFLINE )); then fail '--online and --offline conflict'; fi
+if [[ -n "$EXPORT_USB" ]]; then
+  (( OFFLINE == 0 && DRY_RUN == 0 )) || fail 'Export is online preparation.'
+  EXPORT_USB="$(usb_root "$EXPORT_USB")" || fail 'Run prepare-usb.sh first.'
+  HOME_DIR="$HOME/.cache/edge-llm-usb-build"
+  SOURCE_DIR="$HOME_DIR/src"
+elif (( ONLINE == 0 )) && { (( DRY_RUN == 0 )) || (( OFFLINE )); }; then
+  USB_ROOT="$(usb_select "$USB_PATH" "$OFFLINE" "$YES" "$REPO_DIR")" || fail 'USB selection failed.'
+  [[ -z "$USB_ROOT" ]] || OFFLINE=1
+  if (( OFFLINE )) && [[ -z "$USB_ROOT" ]]; then fail 'Prepared USB required.'; fi
+fi
+if (( OFFLINE )) || [[ -n "$EXPORT_USB" ]]; then
+  [[ "$MODE" == auto || "$MODE" == safe ]] || fail 'USB v1 supports safe only.'
+  [[ "$MODEL_CHOICE" == auto && "$AGENT_CHOICE" == none && "$BACKEND_CHOICE" == auto && "$GPU_LAYERS_GIVEN" == 0 ]] ||
+    fail 'USB v1 uses safe CPU; use --online for explicit model/backend choices.'
+  MODE=safe
+fi
 [[ "$MODE" =~ ^(auto|best|safe)$ ]] || fail 'Mode must be auto, best or safe.'
 [[ "$MODEL_CHOICE" =~ ^(auto|gemma4-e4b|gemma4|inkling|qwen38|qwen36|gptoss20b|qwen35-9b)$ ]] || fail 'Invalid --model selection.'
 [[ "$AGENT_CHOICE" =~ ^(none|botpsy|mini-agent)$ ]] || fail 'Invalid --agent-model selection.'
@@ -237,6 +269,24 @@ BUILD_THREADS="$CPU_THREADS"
 [[ "$PROFILE" != pi4 ]] || BUILD_THREADS=2
 BACKEND=cpu
 [[ "$PROFILE" != k11 ]] || BACKEND="$BACKEND_CHOICE"
+if (( OFFLINE )) || [[ -n "$EXPORT_USB" ]]; then
+  BACKEND=cpu
+  BACKEND_CHOICE=cpu
+  PLATFORM="$(usb_platform)" || fail 'Unknown OS identity.'
+  if (( OFFLINE )); then
+    BUNDLE="$USB_ROOT/llm/$PLATFORM/$PROFILE/$GGUF"
+    [[ -d "$BUNDLE" ]] || fail "Missing matching bundle: $BUNDLE. Prepare this hardware/OS first."
+    info "Offline USB: $BUNDLE (safe CPU)"
+    [[ "$(realpath -m "$MODEL_DIR")/" != "$USB_ROOT/"* ]] || fail 'Model destination cannot be inside bundle.'
+  else
+    BUNDLE="$EXPORT_USB/llm/$PLATFORM/$PROFILE/$GGUF"
+    info "Preparing $BUNDLE (no service changes)"
+    if [[ -d "$BUNDLE" ]]; then
+      usb_check "$BUNDLE" llama-server "$GGUF" || fail 'Existing bundle corrupt; remove deliberately and retry.'
+      exit 0
+    fi
+  fi
+fi
 
 printf '\nHardware:  %s | %s | ~%s GiB RAM\n' "$PROFILE" "${DEVICE:-$CPU_NAME}" "$MEM_GIB"
 printf 'Mode:      %s\nModel:     %s\nGGUF:      %s\nEngine:    %s llama.cpp\nBackend:   %s\nContext:   %s\nDownload:  ~%s GB\nStorage:   %s\nAPI:       http://127.0.0.1:8080/v1\n' \
@@ -271,10 +321,24 @@ fi
 (( DRY_RUN == 0 )) || exit 0
 if (( YES == 0 )); then
   [[ -t 0 ]] || fail 'Noninteractive installation requires --yes.'
-  read -r -p 'Install this model and enable the local service? [Y/n] ' response
+  if [[ -n "$EXPORT_USB" ]]; then prompt='Download/build USB bundle (no service changes)? [Y/n] '; else prompt='Install this model and enable local service? [Y/n] '; fi
+  read -r -p "$prompt" response
   [[ ! "$response" =~ ^[Nn] ]] || { info 'Cancelled.'; exit 0; }
 fi
 
+if (( OFFLINE )); then
+  usb_check "$BUNDLE" llama-server "$GGUF" || fail 'USB integrity check failed.'
+  mkdir -p "$MODEL_DIR"
+  FREE_BYTES="$(df -PB1 "$MODEL_DIR" | awk 'END{print $4}')"
+  if [[ ! -f "$MODEL_DIR/$GGUF" ]] || ! cmp -s "$BUNDLE/$GGUF" "$MODEL_DIR/$GGUF"; then
+    ACTUAL_BYTES="$(stat -c %s "$BUNDLE/$GGUF")"
+    (( FREE_BYTES >= ACTUAL_BYTES + 2000000000 )) || fail 'Insufficient model storage (keep 2 GB spare).'
+  fi
+  BIN="$HOME_DIR/usb-bin/$PLATFORM/$PROFILE/llama-server"
+  usb_copy "$BUNDLE/llama-server" "$BIN" 755 || fail 'Binary copy failed.'
+  usb_runtime_check "$BIN" --version || fail 'Incompatible CPU runtime.'
+  usb_copy "$BUNDLE/$GGUF" "$MODEL_DIR/$GGUF" 644 || fail 'Model copy failed.'
+else
 info 'Installing dependencies'
 if command -v apt-get >/dev/null; then
   sudo apt-get update -qq
@@ -320,6 +384,7 @@ else
   GIT_URL=https://github.com/ggml-org/llama.cpp.git
   SRC="$SOURCE_DIR/llama.cpp"
   BUILD_DIR="$SRC/build-$BACKEND"
+  [[ -z "$EXPORT_USB" ]] || BUILD_DIR="$SRC/build-usb-cpu"
 fi
 if [[ ! -d "$SRC/.git" ]]; then
   info "Cloning $GIT_URL"
@@ -331,7 +396,13 @@ if [[ "$ENGINE" == ik ]]; then
     -DGGML_VULKAN=OFF -DLLAMA_BUILD_SERVER=ON
 else
   if [[ "$BACKEND" == vulkan ]]; then VULKAN_CMAKE=ON; else VULKAN_CMAKE=OFF; fi
-  cmake -S "$SRC" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=ON -DGGML_CURL=ON \
+  USB_CMAKE=()
+  CURL_BUILD=ON
+  if [[ -n "$EXPORT_USB" ]]; then
+    USB_CMAKE=(-DBUILD_SHARED_LIBS=OFF -DGGML_BACKEND_DL=OFF -DGGML_OPENMP=OFF -DGGML_BLAS=OFF '-DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -static-libgcc')
+    CURL_BUILD=OFF
+  fi
+  cmake -S "$SRC" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=ON "${USB_CMAKE[@]}" -DGGML_CURL="$CURL_BUILD" \
     -DGGML_VULKAN="$VULKAN_CMAKE" -DGGML_CUDA=OFF -DLLAMA_BUILD_SERVER=ON
 fi
 info "Building $BACKEND llama.cpp server"
@@ -345,6 +416,14 @@ if [[ ! -s "$MODEL_DIR/$GGUF" ]]; then
   "$HOME_DIR/venv/bin/hf" download "$HF_REPO" "$GGUF" --local-dir "$MODEL_DIR"
 fi
 [[ -s "$MODEL_DIR/$GGUF" ]] || fail 'Model file not downloaded.'
+if [[ -n "$EXPORT_USB" ]]; then
+  [[ "$(head -c 4 "$MODEL_DIR/$GGUF")" == GGUF ]] || fail 'Invalid GGUF header.'
+  usb_runtime_check "$BIN" --version || fail 'Runtime check failed.'
+  usb_publish "$BUNDLE" "$BIN" "$MODEL_DIR/$GGUF" llama-server "$GGUF" || fail 'USB publish failed.'
+  info "Prepared $BUNDLE; no local service changed."
+  exit 0
+fi
+fi # end online/offline branches
 
 GPU_CONFIG='-ngl 0'
 CACHE_CONFIG=''
