@@ -88,3 +88,12 @@ This is an evaluation harness. It never changes the model selected by `install.s
 - [Kaggle notebooks documentation](https://www.kaggle.com/docs/notebooks): free accelerator access subject to account quota and availability.
 - [Lightning AI studios](https://platform.lightning.ai/studio): conditional introductory GPU allocation.
 - [Hugging Face ZeroGPU](https://huggingface.co/docs/hub/spaces-zerogpu): shared Gradio GPU function limits and quotas.
+
+## Local Hermes Q4 transfer candidates
+
+The live [local-hermes](https://github.com/luandro/local-hermes) lab uses Q4 rather than Q8. Compare the unchanged Q4 base against the same base plus Hermes LoRA (review LFM license):
+
+    bash benchmark.sh --models lfm3_base_q4,lfm3_hermes_q4 --context 2048 --dry-run
+    bash benchmark.sh --models lfm3_base_q4,lfm3_hermes_q4 --context 2048 --backend cpu --suite full --runs 3
+
+The existing `adapter` group remains Q8. These are sequential model-level tests, not a full Hermes agent benchmark. Record cold/warm timing, hardware pressure and failed/skipped arms. See [deployment readiness](LOCAL_HERMES_TRANSFER.md) for target hardware gates.

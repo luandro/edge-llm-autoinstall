@@ -41,6 +41,10 @@ This runs **synthetic proposed-tool-call, translation, and summary tests**; it n
 - **Currently implemented:** one GGUF LLM via `llama.cpp` (or experimental `ik_llama.cpp` on Pi 8 GB best), installed as `edge-llm.service`, OpenAI-compatible chat at `http://127.0.0.1:8080/v1`, model ID `edge-llm`, localhost only.
 - **Not implemented yet:** transcription endpoint, dedicated STT engine, dedicated neural translation engine, unified multi-model pipeline, automated model unloading or benchmark-based tuning. Do not claim they work or invent `--task`/`--tasks` flags. Request an implementation task before modifying this repository to add them.
 
+## Live lab transfer and hardware readiness
+
+Read [docs/LOCAL_HERMES_TRANSFER.md](docs/LOCAL_HERMES_TRANSFER.md) before experimenting with LFM3, Laya or ARM backends. The separate [local-hermes](https://github.com/luandro/local-hermes) repo is the active ThinkPad test lab. Transfer reproducible findings with their evidence status; do not promote defaults based on ThinkPad or third-party Pi measurements. The Q4 LFM3 base/adapter pair is benchmark-only, not an installer flag. Keep Pi 4 GB context cap and safe defaults; a 2K–4K standalone model test is not a full Hermes test. Collect memory PSI, RSS, major faults, swap deltas and thermal metrics where available. Never automatically adjust kernel or swap settings or load multiple neural models at once on 4 GB. Laya and multi-model scheduling remain unimplemented here.
+
 ## Procedure
 
 ### 1. Establish the target and perform read-only inspection

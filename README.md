@@ -48,6 +48,10 @@ Read [SKILL.md](SKILL.md) for the complete procedure and safeguards. To fetch fu
 
 **Current capabilities:** the installer runs a single local chat/summarization/LLM-translation model. Standalone **pt-BR STT and a dedicated EN→PT-BR translation service are not installed yet**; the skill clearly identifies them as follow-up implementation work.
 
+## Relationship to local-hermes
+
+[local-hermes](https://github.com/luandro/local-hermes) is the live ThinkPad experiment lab. This repo prepares hardware-specific deployments and inherits reproducible lessons, not unvalidated performance claims. See [deployment readiness and Potato OS findings](docs/LOCAL_HERMES_TRANSFER.md). Safe/best defaults are unchanged; LFM3 Q4 base/LoRA are optional benchmark candidates only.
+
 ## Run automated GPU benchmarks with the official Colab CLI
 
 **One command, from your terminal or Hermes:**
@@ -79,7 +83,7 @@ bash benchmark.sh --models edge --suite full --runs 3
 
 - **small:** Qwen3.5 0.8B, BotPsy 0.8B, mini-agent-v2 1.5B and Qwen3.5 2B (all Q4).
 - **edge:** those four plus Qwen3.5 4B and Gemma 4 E4B.
-- **adapter:** LFM3 1.7B Q8 unchanged base versus GGUF Hermes LoRA; review LFM license.
+- **adapter:** LFM3 1.7B Q8 unchanged base versus GGUF Hermes LoRA; review LFM license. For the lab's Q4 comparison, select `--models lfm3_base_q4,lfm3_hermes_q4` explicitly (see readiness guide).
 - **large / all:** K11 and Pi experimental large models, requiring `--allow-large` and adequate RAM, storage and explicitly raised download budget.
 - Specify exact candidates: `--models qwen08,botpsy,mini_agent`.
 

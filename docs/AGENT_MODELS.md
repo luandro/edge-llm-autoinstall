@@ -69,3 +69,9 @@ Use the same **50-task minimum** on each relevant hardware and compare the speci
 **Promotion requirements:** measurable task-success improvement over the safe model (not just BFCL), no new safety or parsing regressions, reproducible GGUF output at target quantization and context, and acceptable latency on the actual hardware. Until then all entries stay optional, and the safe/best table remains unchanged.
 
 Sources: [BotPsy GGUF measurements](https://huggingface.co/qvac/BotPsy-0.8B-GGUFs), [mini-agent evaluation details and limitations](https://huggingface.co/F-A-I-L/mini-agent-v2), [LFM3 Hermes LoRA and scope](https://huggingface.co/harness-hub/LFM3-1.7B-hermes), [Gemma Sol-Traces v4](https://huggingface.co/RedTeamLab/Gemma-4-E4B-Sol-Traces-v4).
+
+## 2026-11-27 update: live Hermes lab and decision routing
+
+The separate [local-hermes](https://github.com/luandro/local-hermes) lab reports working LFM3 Q4_K_M + LoRA on ThinkPad with 64K context, with large prompt-reduction gains in individual runs but variable task success and latency. The Q4 base/adapter pair is now in the benchmark catalog as explicit names `lfm3_base_q4,lfm3_hermes_q4`; no installer default changes. Standalone small-context tests do not establish full Hermes compatibility.
+
+[Laya Multilingual](https://huggingface.co/convaiinnovations/laya-multilingual) is an experimental 322M typed-decision encoder, not an LLM service replacement. Evaluate against rules/TF-IDF, calibrate on held-out PT-BR/EN tasks, compare ONNX FP32 and quantized variants, and measure total latency and RAM. Zero-shot confidence is not reliable authorization; tool execution and verification remain deterministic. No Laya installation option or fine-tuned model is provided. Read [transfer evidence and hardware gates](LOCAL_HERMES_TRANSFER.md).
