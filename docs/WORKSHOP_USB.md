@@ -43,3 +43,7 @@ python3 scripts/edge-task.py en 'A reunião será sexta-feira.'
 ```
 
 No cloud routes, proxies or credentials; it only calls loopback. For a separate notebook use an authorized SSH port forward, e.g. ssh -N -L 8080:127.0.0.1:8080 user@server (choose unused local port if needed). Do not expose public or unauthenticated LAN listeners. If target OS is missing, bring separately downloaded official 64-bit Raspberry Pi OS and Debian/Ubuntu images (https://www.raspberrypi.com/software/operating-systems/, https://www.debian.org/distrib/, https://ubuntu.com/download/server), verify vendor checksums and confirm storage/consent before flashing. Do not auto-flash. Bring spare SD/SSD, keyboard, screen, ethernet/router and power supplies. Keep a second verified USB copy. No offline installation of arbitrary OS dependencies is promised.
+
+## One bounded installation command for Hermes
+
+Preferred: `bash workshop-install.sh --usb /actual/mount --dry-run`, then the same without --dry-run after human approval. This wraps the LLM and STT installation, saves logs under ~/.local/state/edge-workshop, checks the port, preserves existing service/launcher copies, waits for the API and makes one actual translation request. It does not benchmark quality, run Whisper concurrently or automatically roll back. Use --llm-only only as an explicit fallback. Sudo approval still belongs to the human. If it fails, inspect the log before retrying. Keep the individual scripts as manual recovery commands.

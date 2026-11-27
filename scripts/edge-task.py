@@ -7,6 +7,10 @@ import urllib.error
 import urllib.request
 import pathlib
 
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
 def main():
     p = argparse.ArgumentParser(description="IA local: conversar, traduzir e resumir")
     p.add_argument("task", choices=["chat","summary","pt","en","health"])
@@ -20,7 +24,7 @@ def main():
         p.error("invalid port or token limit")
     base = f"http://127.0.0.1:{a.port}/v1"
     # Disable environment proxies; never leave loopback.
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
     try:
         with opener.open(base + "/models", timeout=10) as response:
             model = json.load(response)["data"][0]["id"]

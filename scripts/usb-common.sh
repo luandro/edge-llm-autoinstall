@@ -24,6 +24,9 @@ usb_select() {
     if [[ -t 0 ]]; then
       read -r -p "Prepared USB found at $p. Use it? [Y/n] " reply
       [[ "$reply" =~ ^[Nn] ]] || printf '%s\n' "$p"
+    else
+      usb_error "Prepared USB detected; noninteractive use requires --offline or --usb (or explicit --online)."
+      return 1
     fi
     return 0
   fi

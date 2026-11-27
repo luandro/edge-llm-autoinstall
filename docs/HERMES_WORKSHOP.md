@@ -46,3 +46,5 @@ python3 scripts/cloud-probe.py openrouter --model VERIFIED_MODEL:free --yes
 ```
 
 Reports tool call correctness, usage and rate-limit headers without executing the tool or retrying. This is not an end-to-end Hermes test. OpenRouter explicitly requests zero price, ZDR and deny training; if rejected do not relax privacy to make the test pass. Follow with the real lean-profile rehearsal. If all cloud providers fail, the standalone CLI described in WORKSHOP_USB.md works without Hermes.
+
+Preferred bounded deployment: tell Hermes the approved USB path and have it run `bash workshop-install.sh --usb /actual/mount --dry-run` exactly once; ask approval, then run the same without --dry-run from the human's terminal (or --yes only after explicit approval and available sudo). Return only the exit code and concise status. Do not let a cloud agent read lengthy logs, credentials or sensitive content. This reduces tool rounds and preserves manual fallback.

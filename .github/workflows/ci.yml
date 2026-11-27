@@ -33,3 +33,6 @@ jobs:
           python3 -m py_compile scripts/edge-task.py scripts/cloud-probe.py
           python3 scripts/edge-task.py --help
           python3 scripts/cloud-probe.py --help
+          bash -n workshop-install.sh
+          bash workshop-install.sh --help
+          python3 -m unittest discover -s tests -p 'test_edge_task.py' -v

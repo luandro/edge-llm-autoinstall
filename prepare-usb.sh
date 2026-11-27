@@ -38,6 +38,10 @@ root="$path/edge-llm-usb"
 git diff --quiet HEAD -- && git diff --cached --quiet || { echo 'Commit tracked changes before preparing USB.' >&2; exit 1; }
 rev="$(git rev-parse HEAD)"
 df -h "$path" "$HOME"
+if [[ ! -d "$root/.build-cache" ]]; then
+  free="$(df -PB1 "$path" | awk 'END{print $4}')"
+  (( free >= 32000000000 )) || { echo 'Initial complete kit needs at least 32 GB free; use larger USB.' >&2; exit 1; }
+fi
 if (( ! yes )); then
   [[ -t 0 ]] || exit 1
   read -r -p 'Download/build both architectures now? [y/N] ' reply
