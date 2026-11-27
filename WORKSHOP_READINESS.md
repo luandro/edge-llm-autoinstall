@@ -1,0 +1,168 @@
+# Workshop deployment readiness — Phase 3
+
+Date: 2026-11-27. Continues `REPORT_PHASE_2.md`. Evidence rule: **PASS** = measured on this laptop; **FAIL** = measured and broken; **UNVERIFIED** = cannot be measured without operator credentials or physical target hardware. Emulation and directory stand-ins are **not** physical target validation.
+
+## 1. Phase 2 repository state (verified)
+
+| Check | Result |
+|---|---|
+| Working tree / HEAD at start | clean, `10953da` |
+| GitHub CI (`Shell smoke tests`) | success, run `46067258834` |
+| Local `tests/smoke.sh` | exit 0 (34 PASS lines; `ERROR:` lines are intentional negative tests) |
+| `python3 -m unittest discover -s tests -v` | exit 0 |
+| Syntax (`bash -n` + `py_compile`) | exit 0 |
+| Phase 2 docs/scripts present | `SKILL.md` v1.2.0, 6 `references/*.md`, `scripts/workshop-eval.py`, `scripts/mock-429.py`, `docs/HERMES_WORKSHOP.md`, `REPORT_PHASE_2.md` |
+
+Phase 3 added commits (all pushed, CI green):
+- `d012613` — consolidated Portuguese participant instructions.
+- `0f14394` — fixed `prepare-usb.sh` abort under `pipefail` (see §4).
+
+## 2. Adopted lean configuration and skill — PASS
+
+`config/workshop-lean.yaml` was applied to a fresh profile. Measured with `hermes prompt-size --platform cli --json` in an **isolated** `HERMES_HOME`:
+
+| Mode | Tools | Tool JSON | Skills index | Terminal-only bounded task |
+|---|---|---|---|---|
+| Terminal-only deployment (recommended) | 4 | 4,915 B | 0 (skill installed, not auto-loaded) | PASS: 1 tool call, 2 model requests, 7,433 cumulative input tokens |
+| Skill-enabled customization (optional) | terminal + skills | — | skill body loaded | FAIL at 12,441 input tokens > Groq 8,000 TPM (413); documented limit, not a target |
+
+The Edge skill installs from URL with all six bundled references and is discoverable via `hermes skills list`. Terminal-only deployment is the workshop path; skill-enabled customization is only for adapting the procedure and must stay within the 8K per-request ceiling.
+
+## 3. Fresh participant install through the standard interface — PASS
+
+Installer: `https://hermes-agent.nousresearch.com/install.sh` (sha256 `c73dad4d…493214`), pinned to release commit `8fc0374447313e276f6b9a2764bfc750190c966a`.
+
+```bash
+HERMES_HOME=/tmp/opencode/participant-hermes HOME=/tmp/opencode/participant-home \
+  bash /tmp/opencode/participant-install.sh \
+  --non-interactive --skip-browser --skip-computer-use --commit 8fc0374447313e276f6b9a2764bfc750190c966a
+```
+
+| Evidence | Result |
+|---|---|
+| Installer exit | 0, `✓ Install complete! [detached @ 8fc0374447]` |
+| Version | `Hermes Agent v0.23.4 (2026.9.24)`, Python 3.14.9, SDK 2.54.0 |
+| Isolation | Own `tools/`, `installs/` and checkout; no symlink to the live dependency store (only internal Python/npm links) |
+| Live state | No live Hermes profile was created/overwritten and no service/gateway was restarted; the live `coder` gateway continued its own cron activity |
+| Profile creation | `hermes profile create participant --no-skills --no-credentials --no-alias` → PASS |
+| Skill install | URL install → PASS, all six references fetched |
+| Lean profile | `platform_toolsets.cli: [terminal]`, 4 tools, skills index empty |
+
+Note: the effective profile config is `$HERMES_HOME/profiles/participant/config.yaml` (created on first write); until then the root `$HERMES_HOME/config.yaml` applies.
+
+## 4. USB kit preparation — IN PROGRESS
+
+Environment: x86_64 Pop!_OS 24.04, Docker 29.9.3 + buildx 0.39.1 (rootless), 109 GB free, no mounted USB device. Operator approved directory stand-in and QEMU attempts.
+
+**Deviation:** the real `prepare-usb.sh` requires a mountpoint (`:33`), which a directory stand-in cannot satisfy. The build runs the repository's own `prepare-usb.sh` logic with **only** `mountpoint`/`findmnt` stubbed and both architecture loops reduced to amd64; downstream steps (checksums, provenance, published bundles, marker) are untouched.
+
+**Bug fixed during rehearsal:** the original script used `awk '$1=="Digest:" {print $2; exit}'` in a pipeline under `set -Eeuo pipefail`; the early `exit` sent SIGPIPE to `docker buildx imagetools inspect`, aborting before `base.lock` was written. Verified with `bash -x`, fixed in `prepare-usb.sh`, committed as `0f14394`, CI green.
+
+Pinned revisions: `sources.lock` (llama/whisper HEADs) and `base.lock` (`debian:bookworm-slim@sha256:e67eeead…9ce0e`).
+
+- **x86_64 kit: PASS.** `KIT_BUILD_EXIT=0`; 9.4 GB of portable bundles, provenance (`sources.lock`, `base.lock`, `models.lock`, build info, CMake caches, licenses), cached Hermes installer and samples, `START-HERE.txt`, marker `.portable-complete` = `0f143942d19c58dfdc4ec22372b3228202ffbb05`. All six HF model revisions pinned and verified against Hub size/LFS SHA where available; all bundle `SHA256SUMS`, `hermes/SHA256SUMS` and `samples/SHA256SUMS` verify with `sha256sum --strict -c`. Rehearsal image `edge-usb-rehearsal:amd64` built.
+- **ARM64:** Docker `--platform linux/arm64` still returns `exec format error` under rootless Docker even after host `qemu-user-static` registration (daemon mount namespace does not see host binfmt). Working path: cross-compile with `g++-aarch64-linux-gnu` and verify with `qemu-aarch64-static -L <arm64 sysroot>` (verified: an arm64 `/bin/true` runs under QEMU with the sysroot). RUNNING.
+
+## 5. Native, emulated and network-disabled tests — PARTIAL
+
+- Native: §1 checks PASS; missing-USB and path-with-spaces negative tests PASS; incomplete kit fails closed.
+- Real provider: Phase 2 measured 3/3 per bounded task; Phase 3 re-ran terminal-only PASS and skill-enabled FAIL (8K ceiling).
+- Mock 429 recovery: Phase 2 PASS (2×429 → 200, "OK", 8.35 s).
+- Emulated / `--network none` rehearsal: x86_64 full RUNNING; ARM64 cross-build/emulated version checks RUNNING.
+
+## 6. Successful USB detection and installation preview — PASS (directory stand-in)
+
+Prepared directory stand-in: `/tmp/opencode/workshop/edge-llm-usb/edge-llm-usb`. Command:
+
+```bash
+EDGE_LLM_TEST_PROFILE=pi4 bash install.sh --offline --usb "$KIT" --mode safe --dry-run
+```
+
+Output includes the detected `portable/x86_64/llm/Qwen3.5-0.8B-Q4_K_M.gguf (safe CPU)`, `Hardware: pi4`, `Mode: safe`, `GGUF`, `Backend: cpu` and `API: http://127.0.0.1:8080/v1` — i.e. a successful detection and installation preview with **actual prepared media** (a directory stand-in, not a mounted physical USB).
+
+On this laptop `workshop-install.sh --dry-run` deliberately strips `EDGE_LLM_TEST_PROFILE` and therefore fails the unsupported-CPU check (Intel i7-8650U); that is expected and documents why the direct command was used. No physical target is implied.
+
+## 7. Cloudflare / OpenRouter failover — UNVERIFIED
+
+Operator deferred Cloudflare ("try without it for now, but keep it documented as next obvious choice"). No Workers AI token/account ID or OpenRouter key was supplied. Routes remain disabled; no untested or paid route enabled. Procedure is documented in `docs/HERMES_WORKSHOP.md` and `docs/PARTICIPANT_SETUP_PT.md`.
+
+## 8. Local-hermes offline facilitator — PASS (bounded)
+
+Read-only verification of the existing service (`llama-server`, pid 145019, model `lfm3-harbor-hermes`, 127.0.0.1:8080 only):
+
+| Check | Result |
+|---|---|
+| `GET /v1/models` | 200; one local model, `owned_by: llamacpp` |
+| Bounded `POST /v1/chat/completions` with `reasoning_effort: none`, `reasoning_budget: 0`, `max_tokens: 40` | `content: "PONG"`, `finish_reason: stop`, 3 completion tokens |
+| Config routing | `model.provider: custom`, local URL, `fallback_providers: []`, no MCP, memory off |
+| Service untouched | no restart/stop; gateway units only read (`coder` active, default failed) |
+
+Caveat: without zero reasoning budget, a small `max_tokens` is consumed by `reasoning_content` and final content is empty. Do not promise arbitrary multistep autonomous installs from this model.
+
+## 9. Manual fallback without Hermes or internet — PARTIAL
+
+Verified here: `python3 scripts/edge-task.py health` → `API local: lfm3-harbor-hermes`; `pt 'The meeting is on Friday at nine.' --max-tokens 512` → `A reunião é na sexta-feira às nove.` (exit 0). `edge-task.py` uses only Python stdlib and the loopback API, fails closed, and sends nothing to the cloud. Full `--network none` container rehearsal is PENDING kit completion.
+
+## 10. Consolidated participant instructions — PASS
+
+`docs/PARTICIPANT_SETUP_PT.md` (committed `d012613`, updated in this phase) covers both modes, fresh isolated install, profile creation, skill install, lean config with backup, bounded cards, offline/manual commands, local-hermes caveat, failover status and recovery.
+
+## 11. Status summary
+
+| Item | Status |
+|---|---|
+| Phase 2 committed/documented/CI | PASS |
+| Skill + lean config, terminal-only vs skill-enabled | PASS |
+| Fresh standard-interface Hermes install, isolated | PASS |
+| x86-64 USB kit in directory stand-in | IN PROGRESS |
+| ARM64 kit (cross-build + emulation) | IN PROGRESS |
+| Native tests | PASS |
+| Network-disabled container rehearsal | PENDING |
+| Successful USB detection + install preview | PENDING |
+| Cloudflare/OpenRouter failover | UNVERIFIED (deferred, no credentials) |
+| Local-hermes bounded backup | PASS |
+| Manual CLI fallback | PARTIAL (loopback verified; offline rehearsal pending) |
+| Portuguese instructions | PASS |
+| Physical target install/service/inference | UNVERIFIED (no Pi/N95/K11) |
+
+## 12. Remaining risks
+
+1. No physical target device or mounted USB: kit correctness on real Pi 5 / N95 / K11 is unproven.
+2. ARM64 relies on cross-compilation plus emulation because rootless Docker cannot use host binfmt; physical Armv8-A execution is unproven.
+3. Groq 8,000 TPM hard per-request ceiling: skill-enabled or uncompressed prompts fail with 413; terminal-only path stays under it.
+4. Real 429s occur on back-to-back trials; serial requests with 45 s cooldown are required.
+5. Port 8080 is occupied on this laptop by the live facilitator service; real `edge-llm` install cannot be exercised here.
+6. Cloudflare/OpenRouter fallback has no validated free+ZDR+tool-capable route; enabling any untested route is prohibited.
+
+## 13. Recovery procedures
+
+- **413 / 429**: reduce prompt and confirm no skill auto-load; wait `Retry-After` or 45 s; never run parallel requests on one account.
+- **Reasoning-effort 400**: keep `low`; never set `none`; accept one extra request.
+- **Timeout**: verify state, logs and checkpoints before any retry; never re-run side-effectful commands blindly.
+- **USB not detected**: pass explicit `--usb`; marker must be `edge-llm-usb v2` and `.portable-complete` must exist.
+- **8080 busy**: inspect with `ss -ltnp`; do not stop another service automatically.
+- **Unsupported CPU**: offline install fails closed; supported hardware only.
+- **LFM3 empty answer**: set zero reasoning budget and score only final `content`.
+- **ARM `exec format error`**: use cross-built binaries with `qemu-aarch64-static -L sysroot`, or test on the target; do not register host binfmt without approval.
+
+## 14. Readiness checklist and decision
+
+- [x] Lean config adopted and measured
+- [x] Edge skill install/invocation verified; two modes distinguished
+- [x] Fresh participant install via standard interface, isolated
+- [x] Native checks green; CI green
+- [ ] x86-64 kit complete with checksums and provenance
+- [ ] ARM64 kit complete and emulated checks green
+- [ ] `--network none` rehearsal outputs reviewed for quality
+- [ ] Successful USB detection + install preview on prepared media
+- [ ] Cloudflare failover validated with operator credentials (deferred)
+- [ ] Physical target install + service + inference (no device)
+- [x] Local-hermes bounded backup verified, untouched
+- [x] Manual CLI fallback verified on loopback
+- [x] Portuguese participant instructions consolidated
+
+**GO / CONDITIONAL GO / NO-GO by architecture**
+- **x86-64 (N95/N97/K11): CONDITIONAL GO** — laptop rehearsal and kit checks pass; physical validation still required.
+- **ARM64 (Pi 5): UNVERIFIED / NO-GO for workshop** — cross-build/emulation only; no physical Pi and no Docker binfmt emulation.
+- **Physical target deployment: NO-GO** until a real device completes install + service + inference with prepared USB media.
+- **Cloudflare failover: UNVERIFIED** — next obvious choice once credentials and privacy checks are provided.

@@ -55,8 +55,12 @@ def infer(binary, model, work):
                 raise TimeoutError("model load")
             for prompt in ["Resuma em português: A reunião será sexta-feira às 9h. Três moradores confirmaram presença.",
                            "Translate to Brazilian Portuguese: The meeting is on Friday at nine."]:
+                # Qwen3.5 reasoning models can spend the whole max_tokens budget in
+                # reasoning_content and return an empty final answer. Disabling reasoning
+                # is required for a bounded, assertable rehearsal.
                 body = json.dumps({"model": model_id, "messages": [{"role":"user","content":prompt}],
-                                   "max_tokens":256, "temperature":0}).encode()
+                                   "max_tokens":256, "temperature":0,
+                                   "reasoning_effort":"none"}).encode()
                 req = urllib.request.Request("http://127.0.0.1:18080/v1/chat/completions", body,
                                              {"Content-Type":"application/json"})
                 with urllib.request.urlopen(req, timeout=600) as res:

@@ -42,7 +42,7 @@ Depois crie um perfil novo. **Nunca sobrescreva um perfil existente:**
 
 ```bash
 export HERMES_HOME=/tmp/hermes-participante
-~/.hermes/hermes-agent/.hermes/bin/hermes \
+"$HERMES_HOME/hermes-agent/.hermes/bin/hermes" \
   profile create participant --no-skills --no-credentials --no-alias
 ```
 
@@ -65,11 +65,19 @@ hermes -p participant skills list | grep edge-llm-autoinstall
 
 ## 4. Mescle a configuração enxuta (com backup)
 
+O arquivo efetivo do perfil é `$HERMES_HOME/profiles/participant/config.yaml`
+(se não existir, crie-o; while missing, o perfil usa o `config.yaml` raiz).
+
 ```bash
-cp ~/.hermes/profiles/participant/config.yaml ~/.hermes/profiles/participant/config.yaml.bak
+cp "$HERMES_HOME/profiles/participant/config.yaml" \
+   "$HERMES_HOME/profiles/participant/config.yaml.bak"
 # Mescle config/workshop-lean.yaml no config.yaml do perfil participant.
-hermes -p participant config get model
+hermes -p participant config get platform_toolsets.cli   # deve mostrar: - terminal
 ```
+
+Verificação medida no perfil novo e isolado: `terminal` como única toolset,
+4 ferramentas / 4.915 bytes de JSON, índice de skills vazio (skill instalada,
+mas não carregada automaticamente).
 
 A configuração deve manter: `terminal` como única toolset da CLI, sem plugins,
 sem MCP, sem memória, no máximo 6 turnos, saída de terminal limitada e nenhum
@@ -182,6 +190,10 @@ rota paga ou não testada. O modelo 20B do Groq usa a mesma cota da conta e
   N95/N97 ou Ryzen 8945HS/K11.
 - **Timeout:** não repita o comando; verifique logs, checkpoints e estado antes
   de continuar.
+- **Resposta vazia nos modelos USB:** use `reasoning_effort: none` (ou
+  `chat_template_kwargs.enable_thinking: false`) nos Qwen3.5; `reasoning_budget: 0`
+  **não** funciona neles. No LFM3 local, use `reasoning_budget: 0`. Avalie sempre
+  o `content` final, nunca o `reasoning_content`.
 
 Nenhum segredo deve ser colado neste guia, no USB, no repositório ou em logs
 enviados a provedores de nuvem.
