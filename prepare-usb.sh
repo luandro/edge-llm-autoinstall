@@ -90,6 +90,8 @@ for platform in amd64 arm64; do
     (cd "$built" && sha256sum llama-server whisper-cli > SHA256SUMS)
   fi
   (cd "$built" && sha256sum --strict -c SHA256SUMS)
+  grep -Fxq "llama=${revisions[0]}" "$built/build-info.txt"
+  grep -Fxq "whisper=${revisions[1]}" "$built/build-info.txt"
   mkdir -p "$root/provenance/$arch"
   cp "$built/"{build-info.txt,LICENSE-llama.cpp,LICENSE-whisper.cpp,llama-CMakeCache.txt,whisper-CMakeCache.txt} "$root/provenance/$arch/"
   if [[ "$platform" == amd64 ]]; then cp "$built/"sample-*.wav "$root/samples/"; fi
@@ -109,7 +111,12 @@ while IFS='|' read -r profile repo model; do
   modelrev="$(cat "$entry.revision")"
   [[ "$modelrev" =~ ^[a-f0-9]{40}$ ]] || exit 1
   if [[ ! -f "$entry.sha256" ]]; then
+    # Compare with Hub LFS metadata when available, not just a self-generated checksum.
+    curl -fsSL --retry 3 "https://huggingface.co/api/models/$repo/revision/$modelrev?blobs=true" > "$tmp/hf.json"
+    read -r expected_size expected_sha < <(python3 -c 'import json,sys; f=next(x for x in json.load(open(sys.argv[1]))["siblings"] if x["rfilename"]==sys.argv[2]); print(f.get("size") or f.get("lfs",{}).get("size") or 0, f.get("lfs",{}).get("sha256") or "-")' "$tmp/hf.json" "$model")
     curl -fL --retry 3 -C - -o "$entry.part" "https://huggingface.co/$repo/resolve/$modelrev/$model"
+    if (( expected_size > 0 )); then [[ "$(stat -c %s "$entry.part")" == "$expected_size" ]] || { echo "Upstream size mismatch $model"; exit 1; }; fi
+    if [[ "$expected_sha" != "-" ]]; then [[ "$(sha256sum "$entry.part" | awk '{print $1}')" == "$expected_sha" ]] || { echo "Upstream LFS digest mismatch $model"; exit 1; }; fi
     [[ "$(stat -c %s "$entry.part")" -gt 100000000 ]] || { echo "Truncated $model"; exit 1; }
     if [[ "$profile" != stt ]]; then [[ "$(head -c 4 "$entry.part")" == GGUF ]] || exit 1; fi
     mv "$entry.part" "$entry"

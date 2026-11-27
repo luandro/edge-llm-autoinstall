@@ -276,3 +276,5 @@ python3 scripts/benchmark.py --output benchmark.json  # on a machine with a runn
 ```
 
 Installation is currently validated by shell syntax and hardware-selection dry runs only. Measure actual throughput, prompt latency and model quality on your target before selecting the best profile.
+
+Workshop backup: `python3 scripts/edge-task.py summary --file news.txt` uses only localhost; `scripts/cloud-probe.py` tests one synthetic provider tool call with explicit approval. See [lean Hermes configuration](docs/HERMES_WORKSHOP.md) and [laptop rehearsal handoff](docs/WORKSHOP_LAPTOP_REHEARSAL_PROMPT.md).

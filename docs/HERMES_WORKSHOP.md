@@ -34,3 +34,15 @@ Avoid a single open-ended "install everything" prompt. Each new short session us
 
 ## WAN failure
 If primary and backups fail, finish via direct USB CLI; no cloud needed for the installer itself. The facilitator's existing local-hermes merged LFM3 laptop is a bounded offline helper if actually tested, sufficient free RAM, no competing gateway/single-slot contention, no cloud auxiliary/fallback; do not alter or stop live services without approval. Do not promise arbitrary multistep autonomous installs on that model. The workshop still works using printed instructions without any agent. Check actual cloud quotas, prompt size, tool results, rounds, latency and backup success in rehearsal report. All live provider tests pending.
+
+## Minimal provider probe
+
+After confirming real free quota and privacy, run one synthetic function-call probe using keys already set securely in the shell (never print them):
+
+```bash
+python3 scripts/cloud-probe.py groq --yes
+python3 scripts/cloud-probe.py cloudflare --yes
+python3 scripts/cloud-probe.py openrouter --model VERIFIED_MODEL:free --yes
+```
+
+Reports tool call correctness, usage and rate-limit headers without executing the tool or retrying. This is not an end-to-end Hermes test. OpenRouter explicitly requests zero price, ZDR and deny training; if rejected do not relax privacy to make the test pass. Follow with the real lean-profile rehearsal. If all cloud providers fail, the standalone CLI described in WORKSHOP_USB.md works without Hermes.

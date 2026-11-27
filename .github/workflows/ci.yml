@@ -30,3 +30,6 @@ jobs:
           python3 -m py_compile scripts/usb-build/rehearse.py
           bash -n prepare-usb.sh
           bash -n scripts/rehearse-usb.sh
+          python3 -m py_compile scripts/edge-task.py scripts/cloud-probe.py
+          python3 scripts/edge-task.py --help
+          python3 scripts/cloud-probe.py --help

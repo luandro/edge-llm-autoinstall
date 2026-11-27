@@ -184,3 +184,5 @@ Run the full suite on the **actual** Pi/N95/K11 to measure real prompt/decode la
 ## Verification / Report Back
 
 Return a concise result with: target identifier (no secrets), detected hardware, RAM/channel and storage, OS, chosen model + quantization, safe/best choice, backend, threads/context/microbatch, service status, loopback API URL, one successful chat response, measured throughput and temperature, notes about any manual overrides, and any outstanding STT/NMT tasks. Mark missing hardware tests as **unverified** and leave a clear safe fallback. Keep logs/transcripts on the target unless the operator explicitly authorizes sharing.
+
+Workshop direct fallback: use `python3 scripts/edge-task.py health`, `summary --file PATH`, `pt TEXT` or `en TEXT` on the target. This does not need Hermes or internet; it only uses loopback. Report incompatibilities, never silently fall back online.

@@ -30,3 +30,16 @@ First exercise Hermes: [lean provider setup, quota mitigation, task cards and fa
 
 ## Rehearsal and target gate
 Laptop rehearsal verifies SHA256, correct binary execution and actual x86 safe-model text completions/Whisper STT under Docker --network none, read-only USB, no host model cache. ARM version/help under QEMU by default, optional small-model and Whisper inference. Logs must be reviewed manually; synthetic tests do not measure actual quality. Use separate VM with systemd for service activation if feasible. Run all repo CI and unit tests, test corrupt/missing bundles, path spaces and recovery; do not claim physical performance. See [laptop agent handoff](WORKSHOP_LAPTOP_REHEARSAL_PROMPT.md). Record pass/fail/not-run and duplicate USB backup. On arrival: confirm RAM/arch/OS/disk/refrigeration, test each physical machine with WAN disabled, real chat/transcription, unplug USB and reboot; measure latency/RAM/thermal and human quality. No claim of target readiness until actual tests pass.
+
+## Independent manual fallback (no Hermes)
+
+The local server exposes its bundled browser UI when supported by the built llama.cpp; verify at http://127.0.0.1:8080 during rehearsal. For a guaranteed dependency-light path, use the repo's Python stdlib CLI:
+
+```bash
+python3 scripts/edge-task.py health
+python3 scripts/edge-task.py summary --file news.txt
+python3 scripts/edge-task.py pt 'The meeting is on Friday at nine.'
+python3 scripts/edge-task.py en 'A reunião será sexta-feira.'
+```
+
+No cloud routes, proxies or credentials; it only calls loopback. For a separate notebook use an authorized SSH port forward, e.g. ssh -N -L 8080:127.0.0.1:8080 user@server (choose unused local port if needed). Do not expose public or unauthenticated LAN listeners. If target OS is missing, bring separately downloaded official 64-bit Raspberry Pi OS and Debian/Ubuntu images (https://www.raspberrypi.com/software/operating-systems/, https://www.debian.org/distrib/, https://ubuntu.com/download/server), verify vendor checksums and confirm storage/consent before flashing. Do not auto-flash. Bring spare SD/SSD, keyboard, screen, ethernet/router and power supplies. Keep a second verified USB copy. No offline installation of arbitrary OS dependencies is promised.

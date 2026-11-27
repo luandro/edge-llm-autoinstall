@@ -19,6 +19,9 @@ root="$(usb_select "$path" 1 "$yes" "$PWD")"
 profile="$(env -u EDGE_LLM_TEST_PROFILE bash install.sh --online --mode safe --dry-run | sed -n 's/^Hardware:  \([^ ]*\) .*/\1/p')"
 [[ "$profile" =~ ^(pi4|pi8|pi16|nuc16|k11)$ ]] || exit 1
 bundle="$root/stt/$(usb_platform)/$profile"
+if grep -qx "edge-llm-usb v2" "$root/.edge-llm-usb-v1" && [[ ! -f "$root/.portable-complete" ]]; then
+  echo "Incomplete portable kit; finish preparation on the laptop." >&2; exit 1
+fi
 if [[ -f "$root/.portable-complete" ]]; then
   portable="$(usb_portable "$root")" || exit 1
   bundle="$portable/stt"

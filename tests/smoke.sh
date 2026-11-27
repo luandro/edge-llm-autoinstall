@@ -112,7 +112,8 @@ echo 'PASS: USB selection, profile matching, corruption rejection'
 
 # Laptop preparation requires no supported hardware and no USB for plan.
 bash -n scripts/rehearse-usb.sh
-bash prepare-usb.sh --dry-run | grep -q 'linux/amd64 + linux/arm64'
+plan="$(bash prepare-usb.sh --dry-run)"
+grep -q 'linux/amd64 + linux/arm64' <<<"$plan"
 while IFS='|' read -r profile repo filename; do
   [[ "$profile" != \#* && "$profile" != stt && -n "$profile" ]] || continue
   out="$(EDGE_LLM_TEST_PROFILE="$profile" bash install.sh --online --mode safe --dry-run)"
@@ -128,3 +129,8 @@ touch "$root/.portable-complete"
 out="$(EDGE_LLM_TEST_PROFILE=pi4 bash install.sh --offline --usb "$root" --dry-run)"
 grep -Fq "$portable" <<<"$out"
 echo 'PASS: portable laptop plan, catalog, v2 bundle lookup'
+
+printf 'edge-llm-usb v2\n' > "$root/.edge-llm-usb-v1"
+rm "$root/.portable-complete"
+if EDGE_LLM_TEST_PROFILE=pi4 bash install.sh --offline --usb "$root" --dry-run; then echo 'FAIL: incomplete v2 accepted'; exit 1; fi
+echo 'PASS: incomplete v2 fails closed even with legacy bundle present'

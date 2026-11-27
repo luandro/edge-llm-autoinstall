@@ -83,9 +83,9 @@ elif (( ONLINE == 0 )) && { (( DRY_RUN == 0 )) || (( OFFLINE )); }; then
   if (( OFFLINE )) && [[ -z "$USB_ROOT" ]]; then fail 'Prepared USB required.'; fi
 fi
 if (( OFFLINE )) || [[ -n "$EXPORT_USB" ]]; then
-  [[ "$MODE" == auto || "$MODE" == safe ]] || fail 'USB v1 supports safe only.'
+  [[ "$MODE" == auto || "$MODE" == safe ]] || fail 'USB supports safe only.'
   [[ "$MODEL_CHOICE" == auto && "$AGENT_CHOICE" == none && "$BACKEND_CHOICE" == auto && "$GPU_LAYERS_GIVEN" == 0 ]] ||
-    fail 'USB v1 uses safe CPU; use --online for explicit model/backend choices.'
+    fail 'USB uses safe CPU; use --online for explicit model/backend choices.'
   MODE=safe
 fi
 [[ "$MODE" =~ ^(auto|best|safe)$ ]] || fail 'Mode must be auto, best or safe.'
@@ -275,6 +275,9 @@ if (( OFFLINE )) || [[ -n "$EXPORT_USB" ]]; then
   PLATFORM="$(usb_platform)" || fail 'Unknown OS identity.'
   if (( OFFLINE )); then
     BUNDLE="$USB_ROOT/llm/$PLATFORM/$PROFILE/$GGUF"
+    if grep -qx "edge-llm-usb v2" "$USB_ROOT/.edge-llm-usb-v1" && [[ ! -f "$USB_ROOT/.portable-complete" ]]; then
+      fail "Incomplete portable kit; finish prepare-usb.sh on the laptop."
+    fi
     if [[ -f "$USB_ROOT/.portable-complete" ]]; then
       PORTABLE="$(usb_portable "$USB_ROOT")" || fail 'Portable kit incompatible with this OS/architecture.'
       BUNDLE="$PORTABLE/llm/$GGUF"
