@@ -1,0 +1,36 @@
+# syntax=docker/dockerfile:1
+# Cross-compile baseline ARM64 (Armv8-A) llama.cpp/whisper.cpp on an amd64
+# laptop without privileged binfmt. Produces the same /out layout as the
+# --target export stage of scripts/usb-build/Dockerfile.
+ARG BASE_IMAGE=debian:bookworm-slim
+FROM ${BASE_IMAGE} AS build
+ARG LLAMA_REV
+ARG WHISPER_REV
+ARG JOBS=2
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git cmake build-essential g++-aarch64-linux-gnu libc6-dev-arm64-cross \
+      espeak-ng ffmpeg file ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+RUN git init llama && cd llama && git remote add origin https://github.com/ggml-org/llama.cpp.git \
+    && git fetch --depth 1 origin "$LLAMA_REV" && git checkout --detach FETCH_HEAD
+RUN git init whisper && cd whisper && git remote add origin https://github.com/ggml-org/whisper.cpp.git \
+    && git fetch --depth 1 origin "$WHISPER_REV" && git checkout --detach FETCH_HEAD
+RUN set -eux; \
+    flags="-DGGML_NATIVE=OFF -DBUILD_SHARED_LIBS=OFF -DGGML_BACKEND_DL=OFF -DGGML_CPU_ALL_VARIANTS=OFF -DGGML_OPENMP=OFF -DGGML_BLAS=OFF -DGGML_CPU_ARM_ARCH=armv8-a -DGGML_CPU_KLEIDIAI=OFF"; \
+    toolchain="-DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ -DCMAKE_FIND_ROOT_PATH=/usr/aarch64-linux-gnu -DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY"; \
+    cmake -S llama -B llama/build -DCMAKE_BUILD_TYPE=Release $toolchain $flags -DGGML_VULKAN=OFF -DGGML_CUDA=OFF -DGGML_CURL=OFF -DLLAMA_BUILD_SERVER=ON '-DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -static-libgcc'; \
+    cmake --build llama/build --parallel "$JOBS" --target llama-server; \
+    cmake -S whisper -B whisper/build -DCMAKE_BUILD_TYPE=Release $toolchain $flags -DWHISPER_BUILD_TESTS=OFF '-DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -static-libgcc'; \
+    cmake --build whisper/build --parallel "$JOBS" --target whisper-cli; \
+    mkdir /out; cp llama/build/bin/llama-server whisper/build/bin/whisper-cli /out/; \
+    cp llama/LICENSE /out/LICENSE-llama.cpp; cp whisper/LICENSE /out/LICENSE-whisper.cpp; \
+    file /out/llama-server /out/whisper-cli; \
+    printf 'llama=%s\nwhisper=%s\narch=%s\n' "$LLAMA_REV" "$WHISPER_REV" "arm64-cross" >/out/build-info.txt; \
+    cp llama/build/CMakeCache.txt /out/llama-CMakeCache.txt; cp whisper/build/CMakeCache.txt /out/whisper-CMakeCache.txt
+RUN espeak-ng -v pt-br -s 135 -w /tmp/pt.wav 'A rádio comunitária entrevistou três moradores. A reunião será na sexta-feira, às nove horas.' && \
+    espeak-ng -v en -s 135 -w /tmp/en.wav 'The community radio interviewed three residents. The meeting is on Friday at nine in the morning.' && \
+    ffmpeg -v error -i /tmp/pt.wav -ar 16000 -ac 1 -c:a pcm_s16le /out/sample-pt.wav && \
+    ffmpeg -v error -i /tmp/en.wav -ar 16000 -ac 1 -c:a pcm_s16le /out/sample-en.wav
+FROM scratch AS export
+COPY --from=build /out/ /
