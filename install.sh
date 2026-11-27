@@ -275,7 +275,11 @@ if (( OFFLINE )) || [[ -n "$EXPORT_USB" ]]; then
   PLATFORM="$(usb_platform)" || fail 'Unknown OS identity.'
   if (( OFFLINE )); then
     BUNDLE="$USB_ROOT/llm/$PLATFORM/$PROFILE/$GGUF"
-    [[ -d "$BUNDLE" ]] || fail "Missing matching bundle: $BUNDLE. Prepare this hardware/OS first."
+    if [[ -f "$USB_ROOT/.portable-complete" ]]; then
+      PORTABLE="$(usb_portable "$USB_ROOT")" || fail 'Portable kit incompatible with this OS/architecture.'
+      BUNDLE="$PORTABLE/llm/$GGUF"
+    fi
+    [[ -d "$BUNDLE" ]] || fail "Missing matching bundle: $BUNDLE. Rebuild the complete kit on the facilitator laptop."
     info "Offline USB: $BUNDLE (safe CPU)"
     [[ "$(realpath -m "$MODEL_DIR")/" != "$USB_ROOT/"* ]] || fail 'Model destination cannot be inside bundle.'
   else

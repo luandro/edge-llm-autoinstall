@@ -78,3 +78,17 @@ usb_runtime_check() {
   fi
   "$1" "$2" >/dev/null 2>&1 || usb_error "Executable failed to start: $1"
 }
+
+# v2 portable kit: Debian Bookworm (glibc >=2.36), generic CPU executables.
+# Never substitute a portable artifact for a missing v1 bundle unless v2 is complete.
+usb_portable() {
+  local root="$1" arch version
+  [[ -f "$root/.portable-complete" ]] || return 1
+  arch="$(uname -m)"
+  [[ "$arch" == x86_64 || "$arch" == aarch64 ]] || return 1
+  version="$(getconf GNU_LIBC_VERSION 2>/dev/null | awk '{print $2}')"
+  [[ "$version" =~ ^[0-9]+\.[0-9]+$ ]] || { usb_error 'glibc required'; return 1; }
+  [[ "$(printf '%s\n' 2.36 "$version" | sort -V | head -1)" == 2.36 ]] ||
+    { usb_error "glibc $version too old; use 64-bit Debian 12+/Ubuntu 24.04+ baseline."; return 1; }
+  printf '%s\n' "$root/portable/$arch"
+}

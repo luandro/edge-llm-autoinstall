@@ -1,0 +1,20 @@
+# Merge into a NEW dedicated workshop profile only; never overwrite live Hermes.
+# Source: local-hermes/config/lean-config.yaml and LEARNINGS.md (2026-11-27).
+platform_toolsets:
+  cli: [terminal]
+plugins:
+  enabled: []
+mcp_servers: {}
+memory:
+  memory_enabled: false
+skills:
+  external_dirs: []
+agent:
+  max_turns: 6
+  reasoning_effort: low
+tool_output:
+  max_bytes: 2400
+  max_lines: 100
+  max_line_length: 500
+fallback_providers: []
+# Add ONLY verified explicitly authorized free/ZDR fallbacks; see docs/HERMES_WORKSHOP.md.

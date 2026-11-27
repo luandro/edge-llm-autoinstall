@@ -23,16 +23,18 @@ bash install.sh --yes            # no interactive confirmation
 
 ## Offline USB deployment
 
-Prepare one mounted USB on each distinct hardware/OS profile while online; then install from its committed repo-* checkout on a matching target:
+Prepare **one USB entirely on your laptop**, without any Pi/NUC/K11 present. It builds both ARM64 and x86-64 portable CPU executables in Docker/buildx and downloads all safe weights. Then install from its committed repo-* checkout on the target:
 
 ```bash
+bash prepare-usb.sh --dry-run
 bash prepare-usb.sh --usb /media/$USER/WORKSHOP
+bash scripts/rehearse-usb.sh --usb /media/$USER/WORKSHOP
 # On target, from USB checkout:
 bash install.sh --offline --mode safe
 bash install-stt.sh
 ```
 
-Automatic USB detection, explicit --usb PATH, strict --offline and --online bypass are supported. USB v1 includes safe CPU prebuilt executables, weights, SHA256 manifests, and optional multilingual Whisper CLI; no target downloads or build. Requires matching 64-bit Linux runtime and CPU; real hardware validation pending. [Workshop guide, Hermes cloud providers, acceptance gates](docs/WORKSHOP_USB.md).
+Automatic USB detection, explicit --usb PATH, strict --offline and --online bypass are supported. USB v2 includes both architectures, all safe weights, pinned revisions, SHA256, multilingual Whisper CLI, synthetic samples and a reviewed Hermes bootstrap script (Hermes itself still needs WAN). No target downloads/build; requires 64-bit Linux/systemd and glibc >=2.36. Laptop rehearsal uses offline containers; real hardware validation pending. [Workshop guide, Hermes cloud providers, acceptance gates](docs/WORKSHOP_USB.md).
 
 ## Use as a Hermes Agent skill
 

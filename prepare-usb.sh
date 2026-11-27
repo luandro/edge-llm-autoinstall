@@ -1,19 +1,29 @@
 #!/usr/bin/env bash
-# Run online on each distinct target hardware/OS profile; accumulate one USB.
+# Laptop-only multiarchitecture preparation. No target devices needed.
 set -Eeuo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 source scripts/usb-common.sh
-path="" yes=0 llm_only=0
+path="" yes=0 dry=0 jobs=2
 while (($#)); do
   case "$1" in
     --usb) (($# >= 2)) || exit 2; path="$2"; shift 2 ;;
     --yes) yes=1; shift ;;
-    --llm-only) llm_only=1; shift ;;
-    -h|--help) echo 'Usage: bash prepare-usb.sh --usb /mounted/usb [--yes] [--llm-only]'; exit 0 ;;
+    --dry-run) dry=1; shift ;;
+    --jobs) (($# >= 2)) || exit 2; jobs="$2"; shift 2 ;;
+    -h|--help) echo 'Usage: bash prepare-usb.sh [--usb /mounted/usb] [--yes] [--dry-run] [--jobs N]'; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; exit 2 ;;
   esac
 done
+[[ "$jobs" =~ ^[1-9][0-9]*$ ]] && (( jobs <= 8 )) || exit 2
+echo 'Plan: build linux/amd64 + linux/arm64 generic CPU binaries in Debian Bookworm containers; download all safe models and Whisper base; save pinned revisions, checksums, samples and Git snapshot.'
+cat scripts/usb-build/models.tsv
+echo 'USB: 128GB recommended; allow ~30GB for models/cache/copies plus build cache on Docker storage. Target glibc >=2.36, 64-bit Linux/systemd. No target machine needed.'
+(( ! dry )) || exit 0
 (( EUID != 0 )) || { echo 'Run as normal user.' >&2; exit 1; }
+for cmd in docker git curl python3 sha256sum findmnt mountpoint; do command -v "$cmd" >/dev/null || { echo "Missing $cmd"; exit 1; }; done
+docker buildx version
+docker info --format 'Docker storage: {{.DockerRootDir}}'
+df -h "$HOME"
 if [[ -z "$path" ]]; then
   lsblk -o NAME,SIZE,TRAN,FSTYPE,MOUNTPOINTS >&2
   [[ -t 0 && "$yes" == 0 ]] || { echo 'Specify --usb /mount/path' >&2; exit 1; }
@@ -22,54 +32,121 @@ fi
 path="$(realpath -e "$path")"
 mountpoint -q "$path" && [[ "$path" != / && -w "$path" ]] || { echo 'Use a writable mounted directory, not a block device.' >&2; exit 1; }
 fs="$(findmnt -n -o FSTYPE --target "$path")"
-[[ "$fs" != vfat && "$fs" != msdos ]] || { echo 'Use exFAT or ext4, not FAT32 (4 GB file limit).' >&2; exit 1; }
+[[ "$fs" != vfat && "$fs" != msdos ]] || { echo 'Use exFAT or ext4, not FAT32.' >&2; exit 1; }
 root="$path/edge-llm-usb"
 [[ ! -e "$root" || -f "$root/.edge-llm-usb-v1" ]] || { echo 'Existing unmanaged directory; refusing overwrite.' >&2; exit 1; }
-git diff --quiet HEAD -- && git diff --cached --quiet || { echo 'Commit changes before preparing USB.' >&2; exit 1; }
+git diff --quiet HEAD -- && git diff --cached --quiet || { echo 'Commit tracked changes before preparing USB.' >&2; exit 1; }
 rev="$(git rev-parse HEAD)"
-profile="$(env -u EDGE_LLM_TEST_PROFILE bash install.sh --online --mode safe --dry-run | sed -n 's/^Hardware:  \([^ ]*\) .*/\1/p')"
-[[ "$profile" =~ ^(pi4|pi8|pi16|nuc16|k11)$ ]] || exit 1
-platform="$(usb_platform)"
 df -h "$path" "$HOME"
-echo "Prepare $profile / $platform at $root. Online build dependencies may be installed; no service changes."
 if (( ! yes )); then
   [[ -t 0 ]] || exit 1
-  read -r -p 'Proceed? [y/N] ' reply
+  read -r -p 'Download/build both architectures now? [y/N] ' reply
   [[ "$reply" =~ ^[Yy] ]] || exit 0
 fi
+# Do not auto-register privileged binfmt or install Docker on the host.
+for p in amd64 arm64; do
+  docker run --rm --platform "linux/$p" debian:bookworm-slim uname -m || {
+    echo "Cannot run linux/$p. Set up Docker buildx/QEMU/binfmt with operator approval, then retry." >&2; exit 1;
+  }
+done
 mkdir -p "$root"
-printf 'edge-llm-usb v1\n' > "$root/.edge-llm-usb-v1"
-bash install.sh --online --mode safe --export-usb "$root" --yes
-if (( ! llm_only )); then
-  cache="$HOME/.cache/edge-llm-usb-build"
-  src="$cache/whisper.cpp"; build="$src/build-usb"; model="$cache/ggml-base.bin"
-  dest="$root/stt/$platform/$profile"
-  if [[ -d "$dest" ]]; then
-    usb_check "$dest" whisper-cli ggml-base.bin
-  else
-    mkdir -p "$cache"
-    [[ -d "$src/.git" ]] || git clone --depth 1 https://github.com/ggml-org/whisper.cpp.git "$src"
-    cmake -S "$src" -B "$build" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
-      -DGGML_NATIVE=ON -DGGML_OPENMP=OFF -DGGML_BACKEND_DL=OFF \
-      -DWHISPER_BUILD_TESTS=OFF '-DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -static-libgcc'
-    cmake --build "$build" --parallel 2 --target whisper-cli
-    if [[ ! -s "$model" ]]; then
-      curl -fL --retry 3 -o "$model.part" https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin
-      mv "$model.part" "$model"
-    fi
-    [[ "$(stat -c %s "$model")" -gt 100000000 ]] || { echo 'Incomplete Whisper model.' >&2; exit 1; }
-    usb_runtime_check "$build/bin/whisper-cli" --help
-    usb_publish "$dest" "$build/bin/whisper-cli" "$model" whisper-cli ggml-base.bin
-  fi
+printf 'edge-llm-usb v2\n' > "$root/.edge-llm-usb-v1"
+rm -f "$root/.portable-complete"
+cache="$root/.build-cache"
+mkdir -p "$cache/models" "$root/provenance" "$root/samples"
+# Lock the first resolved revisions; reruns never silently switch versions.
+if [[ ! -f "$cache/sources.lock" ]]; then
+  llama="$(git ls-remote https://github.com/ggml-org/llama.cpp.git HEAD | awk 'NR==1 {print $1}')"
+  whisper="$(git ls-remote https://github.com/ggml-org/whisper.cpp.git HEAD | awk 'NR==1 {print $1}')"
+  [[ "$llama" =~ ^[0-9a-f]{40}$ && "$whisper" =~ ^[0-9a-f]{40}$ ]] || exit 1
+  printf '%s\n%s\n' "$llama" "$whisper" > "$cache/sources.lock.tmp"
+  mv "$cache/sources.lock.tmp" "$cache/sources.lock"
 fi
-# Only committed content, never credentials, .git, caches or untracked files.
+mapfile -t revisions < "$cache/sources.lock"
+[[ "${revisions[0]}" =~ ^[0-9a-f]{40}$ && "${revisions[1]}" =~ ^[0-9a-f]{40}$ ]] || exit 1
+# Resolve actual multiarch base manifest; record/pin digest rather than floating tag.
+if [[ ! -f "$cache/base.lock" ]]; then
+  digest="$(docker buildx imagetools inspect debian:bookworm-slim | awk '$1=="Digest:" {print $2; exit}')"
+  [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo 'Could not resolve base digest.'; exit 1; }
+  printf 'debian:bookworm-slim@%s\n' "$digest" > "$cache/base.lock"
+fi
+base_image="$(cat "$cache/base.lock")"
+[[ "$base_image" =~ ^debian:bookworm-slim@sha256:[0-9a-f]{64}$ ]] || exit 1
+cp "$cache/sources.lock" "$cache/base.lock" "$root/provenance/"
+# Use a temporary Linux directory for BuildKit export; exFAT may not preserve mode bits.
+tmp="$(mktemp -d)"
+trap 'rm -rf -- "$tmp"' EXIT
+for platform in amd64 arm64; do
+  case "$platform" in amd64) arch=x86_64 ;; arm64) arch=aarch64 ;; esac
+  built="$cache/bin-$arch"
+  if [[ ! -f "$built/SHA256SUMS" ]]; then
+    mkdir -p "$tmp/$arch"
+    docker buildx build --platform "linux/$platform" --target export \
+      --build-arg "BASE_IMAGE=$base_image" --build-arg "LLAMA_REV=${revisions[0]}" \
+      --build-arg "WHISPER_REV=${revisions[1]}" --build-arg "JOBS=$jobs" \
+      --output "type=local,dest=$tmp/$arch" scripts/usb-build
+    mkdir -p "$built"
+    cp "$tmp/$arch/"* "$built/"
+    (cd "$built" && sha256sum llama-server whisper-cli > SHA256SUMS)
+  fi
+  (cd "$built" && sha256sum --strict -c SHA256SUMS)
+  mkdir -p "$root/provenance/$arch"
+  cp "$built/"{build-info.txt,LICENSE-llama.cpp,LICENSE-whisper.cpp,llama-CMakeCache.txt,whisper-CMakeCache.txt} "$root/provenance/$arch/"
+  if [[ "$platform" == amd64 ]]; then cp "$built/"sample-*.wav "$root/samples/"; fi
+  # Test image stays on the laptop for network-disabled rehearsal. No target Docker needed.
+  docker buildx build --platform "linux/$platform" --target runtime --build-arg "BASE_IMAGE=$base_image" \
+    --load -t "edge-usb-rehearsal:$platform" scripts/usb-build
+done
+# Download one copy per exact upstream file, using immutable model revision and curl resume.
+while IFS='|' read -r profile repo model; do
+  [[ "$profile" != \#* && -n "$profile" ]] || continue
+  entry="$cache/models/$model"
+  if [[ ! -f "$entry.revision" ]]; then
+    curl -fsSL --retry 3 "https://huggingface.co/api/models/$repo" |
+      python3 -c 'import json,sys; print(json.load(sys.stdin)["sha"])' > "$entry.revision.tmp"
+    mv "$entry.revision.tmp" "$entry.revision"
+  fi
+  modelrev="$(cat "$entry.revision")"
+  [[ "$modelrev" =~ ^[a-f0-9]{40}$ ]] || exit 1
+  if [[ ! -f "$entry.sha256" ]]; then
+    curl -fL --retry 3 -C - -o "$entry.part" "https://huggingface.co/$repo/resolve/$modelrev/$model"
+    [[ "$(stat -c %s "$entry.part")" -gt 100000000 ]] || { echo "Truncated $model"; exit 1; }
+    if [[ "$profile" != stt ]]; then [[ "$(head -c 4 "$entry.part")" == GGUF ]] || exit 1; fi
+    mv "$entry.part" "$entry"
+    (cd "$(dirname "$entry")" && sha256sum "$model" > "$model.sha256")
+  fi
+  (cd "$(dirname "$entry")" && sha256sum --strict -c "$model.sha256")
+  printf '%s|%s|%s|%s\n' "$profile" "$repo" "$modelrev" "$model" >> "$tmp/models.lock"
+  for arch in x86_64 aarch64; do
+    # x86 gets all LLMs for rehearsal; ARM gets Pi models only.
+    [[ "$arch" != aarch64 || "$profile" != k11 ]] || continue
+    if [[ "$profile" == stt ]]; then
+      usb_publish "$root/portable/$arch/stt" "$cache/bin-$arch/whisper-cli" "$entry" whisper-cli "$model"
+    else
+      usb_publish "$root/portable/$arch/llm/$model" "$cache/bin-$arch/llama-server" "$entry" llama-server "$model"
+    fi
+  done
+done < scripts/usb-build/models.tsv
+cp "$tmp/models.lock" "$root/provenance/models.lock"
+# Cache official bootstrap script for review; full Hermes install still requires WAN.
+mkdir -p "$root/hermes"
+if [[ ! -f "$root/hermes/install.sh" ]]; then
+  curl -fsSL --retry 3 https://hermes-agent.nousresearch.com/install.sh -o "$root/hermes/install.sh.part"
+  mv "$root/hermes/install.sh.part" "$root/hermes/install.sh"
+fi
+(cd "$root/hermes" && sha256sum install.sh > SHA256SUMS)
 checkout="$root/repo-$rev"
 if [[ ! -d "$checkout" ]]; then
-  tmp="$(mktemp -d "$root/.repo.XXXXXXXX")"
-  git archive "$rev" | tar -xf - -C "$tmp"
-  mv -T "$tmp" "$checkout"
+  stage="$(mktemp -d "$root/.repo.XXXXXXXX")"
+  git archive "$rev" | tar -xf - -C "$stage"
+  mv -T "$stage" "$checkout"
 fi
-printf 'Open folder repo-%s in edge-llm-usb on the target.\nRun: bash install.sh --offline --mode safe\nThen: bash install-stt.sh\nSee docs/WORKSHOP_USB.md. If not detected, pass --usb /actual/mount.\n' "$rev" > "$root/START-HERE.txt"
+printf '%s\n' 'Synthetic eSpeak examples (not human or Indigenous language evaluation).' \
+ 'PT: A rádio comunitária entrevistou três moradores. A reunião será na sexta-feira, às nove horas.' \
+ 'EN: The community radio interviewed three residents. The meeting is on Friday at nine in the morning.' > "$root/samples/REFERENCES.txt"
+(cd "$root/samples" && sha256sum sample-*.wav REFERENCES.txt > SHA256SUMS)
+printf 'Abra a pasta repo-%s.\n1. bash install.sh --offline --mode safe\n2. bash install-stt.sh\nLeia docs/WORKSHOP_USB.md. Hermes online: docs/HERMES_WORKSHOP.md.\nNo laptop: bash scripts/rehearse-usb.sh --usb /ponto/de/montagem\n' "$rev" > "$root/START-HERE.txt"
+printf '%s\n' "$rev" > "$root/.portable-complete.tmp"
+mv "$root/.portable-complete.tmp" "$root/.portable-complete"
 sync
-cat "$root/START-HERE.txt"
-echo "Prepared $profile. Repeat on each distinct CPU/OS profile using the SAME USB."
+echo 'Both architectures prepared. Run laptop rehearsal before declaring readiness.'

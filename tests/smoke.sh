@@ -109,3 +109,22 @@ if EDGE_LLM_TEST_PROFILE=pi8 bash install.sh --offline --usb "$root" --dry-run; 
 printf 'corruption' >> "$bundle/$model"
 if usb_check "$bundle" llama-server "$model"; then exit 1; fi
 echo 'PASS: USB selection, profile matching, corruption rejection'
+
+# Laptop preparation requires no supported hardware and no USB for plan.
+bash -n scripts/rehearse-usb.sh
+bash prepare-usb.sh --dry-run | grep -q 'linux/amd64 + linux/arm64'
+while IFS='|' read -r profile repo filename; do
+  [[ "$profile" != \#* && "$profile" != stt && -n "$profile" ]] || continue
+  out="$(EDGE_LLM_TEST_PROFILE="$profile" bash install.sh --online --mode safe --dry-run)"
+  grep -Fq "GGUF:      $filename" <<<"$out"
+done < scripts/usb-build/models.tsv
+# Portable v2 selects correct architecture without matching OS directory.
+portable="$root/portable/$(uname -m)/llm/$model"
+mkdir -p "$portable"
+cp "$bundle/llama-server" "$portable/"
+printf 'GGUF fixture' > "$portable/$model"
+(cd "$portable" && sha256sum llama-server "$model" > SHA256SUMS)
+touch "$root/.portable-complete"
+out="$(EDGE_LLM_TEST_PROFILE=pi4 bash install.sh --offline --usb "$root" --dry-run)"
+grep -Fq "$portable" <<<"$out"
+echo 'PASS: portable laptop plan, catalog, v2 bundle lookup'

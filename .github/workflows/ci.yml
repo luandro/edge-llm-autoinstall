@@ -25,3 +25,8 @@ jobs:
           bash benchmark.sh --dry-run --models small --suite quick
           python3 -c "import json; p=json.load(open('notebooks/benchmark_colab.ipynb')); assert p['nbformat']==4"
 
+      - name: Laptop portable rehearsal syntax (no downloads)
+        run: |
+          python3 -m py_compile scripts/usb-build/rehearse.py
+          bash -n prepare-usb.sh
+          bash -n scripts/rehearse-usb.sh
