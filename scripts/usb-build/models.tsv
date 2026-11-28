@@ -4,4 +4,6 @@ pi8|unsloth/Qwen3.5-2B-GGUF|Qwen3.5-2B-Q4_K_M.gguf
 pi16|ggml-org/Qwen3.5-4B-GGUF|Qwen3.5-4B-Q4_K_M.gguf
 nuc16|ggml-org/Qwen3.5-4B-GGUF|Qwen3.5-4B-Q4_K_M.gguf
 k11|unsloth/gemma-4-E4B-it-GGUF|gemma-4-E4B-it-Q4_K_M.gguf
+lfm3|LiquidAI/LFM3-1.7B-GGUF|LFM3-1.7B-Q4_K_M.gguf
+lfm3-lora|harness-hub/LFM3-1.7B-hermes-GGUF|LFM3-1.7B-harbor-hermes-lora-F16.gguf
 stt|ggerganov/whisper.cpp|ggml-base.bin

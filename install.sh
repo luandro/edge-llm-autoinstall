@@ -28,7 +28,7 @@ info() { printf '\n[edge-llm] %s\n' "$*"; }
 fail() { printf '[edge-llm] ERROR: %s\n' "$*" >&2; exit 1; }
 usage() {
   cat <<'EOF'
-Usage: bash install.sh [--mode auto|best|safe] [--agent-model botpsy|mini-agent]
+Usage: bash install.sh [--mode auto|best|safe] [--agent-model lfm3-hermes|botpsy|mini-agent]
                        [--model NAME] [--backend auto|vulkan|cpu]
                        [--gpu-layers N] [--context N] [--model-dir PATH] [--yes] [--dry-run]
 
@@ -36,7 +36,7 @@ Usage: bash install.sh [--mode auto|best|safe] [--agent-model botpsy|mini-agent]
   --mode best       Highest capability model for detected hardware
   --mode safe       Smaller and more dependable model
   --model NAME      Ryzen 8945HS: gemma4-e4b, gemma4, qwen36, inkling, qwen38, gptoss20b, qwen35-9b
-  --agent-model NAME  Optional tool-calling specialist on any device: botpsy, mini-agent
+  --agent-model NAME  Optional agent: lfm3-hermes (Pi/NUC preferred experiment), botpsy, mini-agent
                        Experimental; never replaces general-purpose safe/best defaults
   --backend NAME    Ryzen 8945HS: auto (Vulkan preferred), vulkan, cpu
   --gpu-layers N    Ryzen 8945HS: offload N layers to Radeon iGPU (default 99)
@@ -84,13 +84,14 @@ elif (( ONLINE == 0 )) && { (( DRY_RUN == 0 )) || (( OFFLINE )); }; then
 fi
 if (( OFFLINE )) || [[ -n "$EXPORT_USB" ]]; then
   [[ "$MODE" == auto || "$MODE" == safe ]] || fail 'USB supports safe only.'
-  [[ "$MODEL_CHOICE" == auto && "$AGENT_CHOICE" == none && "$BACKEND_CHOICE" == auto && "$GPU_LAYERS_GIVEN" == 0 ]] ||
-    fail 'USB uses safe CPU; use --online for explicit model/backend choices.'
+  [[ "$MODEL_CHOICE" == auto && ( "$AGENT_CHOICE" == none || "$AGENT_CHOICE" == lfm3-hermes ) && "$BACKEND_CHOICE" == auto && "$GPU_LAYERS_GIVEN" == 0 ]] ||
+    fail 'USB supports safe CPU or LFM3 Hermes; use --online for other choices.'
+  [[ -z "$EXPORT_USB" || "$AGENT_CHOICE" == none ]] || fail 'Use prepare-usb.sh for LFM3 media.'
   MODE=safe
 fi
 [[ "$MODE" =~ ^(auto|best|safe)$ ]] || fail 'Mode must be auto, best or safe.'
 [[ "$MODEL_CHOICE" =~ ^(auto|gemma4-e4b|gemma4|inkling|qwen38|qwen36|gptoss20b|qwen35-9b)$ ]] || fail 'Invalid --model selection.'
-[[ "$AGENT_CHOICE" =~ ^(none|botpsy|mini-agent)$ ]] || fail 'Invalid --agent-model selection.'
+[[ "$AGENT_CHOICE" =~ ^(none|lfm3-hermes|botpsy|mini-agent)$ ]] || fail 'Invalid --agent-model selection.'
 if [[ "$AGENT_CHOICE" != none && "$MODEL_CHOICE" != auto ]]; then
   fail '--agent-model and --model cannot be combined.'
 fi
@@ -178,12 +179,20 @@ fi
 case "$MODEL_DIR" in *$'\n'*|*$'\r'*) fail 'Invalid model directory newline.' ;; esac
 
 ENGINE=upstream
+ADAPTER_FILE=''
+ADAPTER_REPO=''
+MERGED_FILE=''
 if [[ "$PROFILE" == k11 && "$MODEL_CHOICE" != auto ]]; then MODE=custom; fi
 case "$PROFILE:$MODE" in
   pi4:agent|pi8:agent|pi16:agent|nuc16:agent|k11:agent)
     # Explicit opt-in. Do not set the general-purpose safe/best models to this.
     GTT_MIN_GIB=0
-    if [[ "$AGENT_CHOICE" == botpsy ]]; then
+    if [[ "$AGENT_CHOICE" == lfm3-hermes ]]; then
+      MODEL_NAME='LFM3 1.7B Hermes Q4_K_M (experimental agent)'
+      HF_REPO='LiquidAI/LFM3-1.7B-GGUF'; GGUF='LFM3-1.7B-Q4_K_M.gguf'; BYTES=1170000000
+      ADAPTER_REPO='harness-hub/LFM3-1.7B-hermes-GGUF'; ADAPTER_FILE='LFM3-1.7B-harbor-hermes-lora-F16.gguf'
+      MERGED_FILE='LFM3-1.7B-hermes-merged-Q4_K_M.gguf'
+    elif [[ "$AGENT_CHOICE" == botpsy ]]; then
       MODEL_NAME='BotPsy 0.8B (tool selection, experimental)'
       HF_REPO='qvac/BotPsy-0.8B-GGUFs'
       if [[ "$PROFILE" == pi4 ]]; then
@@ -201,7 +210,8 @@ case "$PROFILE:$MODE" in
       fi
     fi
     if [[ "$PROFILE" == pi4 ]]; then CONTEXT=4096; UBATCH=128
-    else CONTEXT=8192; UBATCH=256; fi ;;
+    else CONTEXT=8192; UBATCH=256; fi
+    if [[ "$AGENT_CHOICE" == lfm3-hermes && "$PROFILE" == nuc16 ]]; then CONTEXT=65536; fi ;;
   pi4:safe)
     MODEL_NAME='Qwen3.5 0.8B Q4_K_M (lightweight)'; HF_REPO='unsloth/Qwen3.5-0.8B-GGUF'; GGUF='Qwen3.5-0.8B-Q4_K_M.gguf'
     BYTES=533000000; CONTEXT=4096; UBATCH=128 ;;
@@ -282,6 +292,11 @@ if (( OFFLINE )) || [[ -n "$EXPORT_USB" ]]; then
       PORTABLE="$(usb_portable "$USB_ROOT")" || fail 'Portable kit incompatible with this OS/architecture.'
       BUNDLE="$PORTABLE/llm/$GGUF"
     fi
+    if [[ -n "$ADAPTER_FILE" ]]; then
+      [[ -n "${PORTABLE:-}" ]] || fail 'LFM3 Hermes requires a new portable v2 USB kit.'
+      ADAPTER_BUNDLE="$PORTABLE/llm/$ADAPTER_FILE"
+      [[ -d "$ADAPTER_BUNDLE" ]] || fail "Missing LFM3 adapter bundle: $ADAPTER_BUNDLE"
+    fi
     [[ -d "$BUNDLE" ]] || fail "Missing matching bundle: $BUNDLE. Rebuild the complete kit on the facilitator laptop."
     info "Offline USB: $BUNDLE (safe CPU)"
     [[ "$(realpath -m "$MODEL_DIR")/" != "$USB_ROOT/"* ]] || fail 'Model destination cannot be inside bundle.'
@@ -298,6 +313,11 @@ fi
 printf '\nHardware:  %s | %s | ~%s GiB RAM\n' "$PROFILE" "${DEVICE:-$CPU_NAME}" "$MEM_GIB"
 printf 'Mode:      %s\nModel:     %s\nGGUF:      %s\nEngine:    %s llama.cpp\nBackend:   %s\nContext:   %s\nDownload:  ~%s GB\nStorage:   %s\nAPI:       http://127.0.0.1:8080/v1\n' \
   "$MODE" "$MODEL_NAME" "$GGUF" "$ENGINE" "$BACKEND" "$CONTEXT" "$(( (BYTES + 999999999) / 1000000000 ))" "$MODEL_DIR"
+if [[ -n "$ADAPTER_FILE" ]]; then
+  info 'LFM-1.0 license: review base and adapter terms before approving download/use.'
+  info "Adapter: $ADAPTER_FILE; prefer locally supplied $MERGED_FILE if present (trusted provenance required)."
+  info 'Experimental: stock Hermes requires >=64000 context. Smaller contexts are direct API/lean harness tests only.'
+fi
 if [[ "$PROFILE" == k11 ]]; then
   GTT_TOTAL_BYTES="$(for f in /sys/class/drm/card*/device/mem_info_gtt_total; do
     if [[ -r "$f" ]]; then cat "$f"; fi
@@ -335,16 +355,25 @@ fi
 
 if (( OFFLINE )); then
   usb_check "$BUNDLE" llama-server "$GGUF" || fail 'USB integrity check failed.'
+  if [[ -n "$ADAPTER_FILE" ]]; then usb_check "$ADAPTER_BUNDLE" llama-server "$ADAPTER_FILE" || fail 'USB adapter integrity check failed.'; fi
   mkdir -p "$MODEL_DIR"
   FREE_BYTES="$(df -PB1 "$MODEL_DIR" | awk 'END{print $4}')"
   if [[ ! -f "$MODEL_DIR/$GGUF" ]] || ! cmp -s "$BUNDLE/$GGUF" "$MODEL_DIR/$GGUF"; then
     ACTUAL_BYTES="$(stat -c %s "$BUNDLE/$GGUF")"
+    if [[ -n "$ADAPTER_FILE" ]]; then ACTUAL_BYTES=$((ACTUAL_BYTES + $(stat -c %s "$ADAPTER_BUNDLE/$ADAPTER_FILE"))); fi
     (( FREE_BYTES >= ACTUAL_BYTES + 2000000000 )) || fail 'Insufficient model storage (keep 2 GB spare).'
   fi
   BIN="$HOME_DIR/usb-bin/$PLATFORM/$PROFILE/llama-server"
   usb_copy "$BUNDLE/llama-server" "$BIN" 755 || fail 'Binary copy failed.'
   usb_runtime_check "$BIN" --version || fail 'Incompatible CPU runtime.'
   usb_copy "$BUNDLE/$GGUF" "$MODEL_DIR/$GGUF" 644 || fail 'Model copy failed.'
+  if [[ -n "$ADAPTER_FILE" ]]; then
+    FREE_BYTES="$(df -PB1 "$MODEL_DIR" | awk 'END{print $4}')"
+    if [[ ! -f "$MODEL_DIR/$ADAPTER_FILE" ]] || ! cmp -s "$ADAPTER_BUNDLE/$ADAPTER_FILE" "$MODEL_DIR/$ADAPTER_FILE"; then
+      (( FREE_BYTES >= $(stat -c %s "$ADAPTER_BUNDLE/$ADAPTER_FILE") + 2000000000 )) || fail 'Insufficient adapter storage.'
+    fi
+    usb_copy "$ADAPTER_BUNDLE/$ADAPTER_FILE" "$MODEL_DIR/$ADAPTER_FILE" 644 || fail 'Adapter copy failed.'
+  fi
 else
 info 'Installing dependencies'
 if command -v apt-get >/dev/null; then
@@ -423,6 +452,11 @@ if [[ ! -s "$MODEL_DIR/$GGUF" ]]; then
   "$HOME_DIR/venv/bin/hf" download "$HF_REPO" "$GGUF" --local-dir "$MODEL_DIR"
 fi
 [[ -s "$MODEL_DIR/$GGUF" ]] || fail 'Model file not downloaded.'
+if [[ -n "$ADAPTER_FILE" && ! -s "$MODEL_DIR/$ADAPTER_FILE" ]]; then
+  python3 -m venv "$HOME_DIR/venv"
+  "$HOME_DIR/venv/bin/python" -m pip install --quiet --upgrade huggingface_hub
+  "$HOME_DIR/venv/bin/hf" download "$ADAPTER_REPO" "$ADAPTER_FILE" --local-dir "$MODEL_DIR"
+fi
 if [[ -n "$EXPORT_USB" ]]; then
   [[ "$(head -c 4 "$MODEL_DIR/$GGUF")" == GGUF ]] || fail 'Invalid GGUF header.'
   usb_runtime_check "$BIN" --version || fail 'Runtime check failed.'
@@ -445,8 +479,26 @@ if [[ "$PROFILE" == k11 ]]; then
   CACHE_CONFIG='-fa on -ctk q8_0 -ctv q8_0'
   BATCH_CONFIG="-b 512 -ub ${UBATCH}"
 fi
+LORA_CONFIG=''
+ACTIVE_MODEL="$MODEL_DIR/$GGUF"
+if [[ -n "$ADAPTER_FILE" ]]; then
+  [[ "$(head -c 4 "$MODEL_DIR/$ADAPTER_FILE")" == GGUF ]] || fail 'Invalid LFM3 adapter GGUF.'
+  if [[ -s "$MODEL_DIR/$MERGED_FILE" ]]; then
+    [[ "$(head -c 4 "$MODEL_DIR/$MERGED_FILE")" == GGUF ]] || fail 'Invalid merged GGUF.'
+    ACTIVE_MODEL="$MODEL_DIR/$MERGED_FILE"
+    info 'Using locally supplied merged GGUF; ensure it was built from the reviewed base/adapter.'
+  else
+    LORA_CONFIG="--lora $(printf '%q' "$MODEL_DIR/$ADAPTER_FILE")"
+    info 'Using runtime LoRA (slower on ThinkPad); merged Q4_K_M recommended when available.'
+  fi
+  BATCH_CONFIG="-b 512 -ub ${UBATCH}"
+  SERVER_HELP="$("$BIN" --help 2>&1)" || fail 'Cannot inspect llama-server flags.'
+  if grep -q -- '--cache-prompt' <<<"$SERVER_HELP" && grep -q -- '--ctx-checkpoints' <<<"$SERVER_HELP" && grep -q -- '--checkpoint-min-step' <<<"$SERVER_HELP" && grep -q -- '-cram' <<<"$SERVER_HELP"; then
+    CACHE_CONFIG+=' --cache-prompt --ctx-checkpoints 4 --checkpoint-min-step 256 -cram 128'
+  fi
+fi
 q_bin="$(printf '%q' "$BIN")"
-q_model="$(printf '%q' "$MODEL_DIR/$GGUF")"
+q_model="$(printf '%q' "$ACTIVE_MODEL")"
 LAUNCH="$HOME_DIR/start.sh"
 cat >"$LAUNCH" <<EOF
 #!/usr/bin/env bash
@@ -454,7 +506,7 @@ set -Eeuo pipefail
 exec ${q_bin} -m ${q_model} \\
   --alias edge-llm --host 127.0.0.1 --port 8080 \\
   ${GPU_CONFIG} -t ${CPU_THREADS} --threads-batch ${BATCH_THREADS} -c ${CONTEXT} -np 1 \\
-  ${BATCH_CONFIG} ${CACHE_CONFIG} ${CHAT_CONFIG} --jinja
+  ${BATCH_CONFIG} ${CACHE_CONFIG} ${CHAT_CONFIG} ${LORA_CONFIG} --jinja
 EOF
 chmod 755 "$LAUNCH"
 UNIT_TMP="$HOME_DIR/edge-llm.service"

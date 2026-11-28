@@ -116,6 +116,10 @@ plan="$(bash prepare-usb.sh --dry-run)"
 grep -q 'linux/amd64 + linux/arm64' <<<"$plan"
 while IFS='|' read -r profile repo filename; do
   [[ "$profile" != \#* && "$profile" != stt && -n "$profile" ]] || continue
+  if [[ "$profile" == lfm3 || "$profile" == lfm3-lora ]]; then
+    grep -Fq "$filename" install.sh
+    continue
+  fi
   out="$(EDGE_LLM_TEST_PROFILE="$profile" bash install.sh --online --mode safe --dry-run)"
   grep -Fq "GGUF:      $filename" <<<"$out"
 done < scripts/usb-build/models.tsv
@@ -134,3 +138,12 @@ printf 'edge-llm-usb v2\n' > "$root/.edge-llm-usb-v1"
 rm "$root/.portable-complete"
 if EDGE_LLM_TEST_PROFILE=pi4 bash install.sh --offline --usb "$root" --dry-run; then echo 'FAIL: incomplete v2 accepted'; exit 1; fi
 echo 'PASS: incomplete v2 fails closed even with legacy bundle present'
+
+for profile in pi4 pi8 pi16 nuc16; do
+  out="$(EDGE_LLM_TEST_PROFILE="$profile" bash install.sh --online --agent-model lfm3-hermes --dry-run --model-dir /tmp/edge-llm-ci-models)"
+  grep -Fq 'LFM3-1.7B-Q4_K_M.gguf' <<<"$out"
+  grep -Fq 'LFM3-1.7B-harbor-hermes-lora-F16.gguf' <<<"$out"
+  if [[ "$profile" == nuc16 ]]; then grep -Fq 'Context:   65536' <<<"$out"; fi
+  if [[ "$profile" == pi4 ]]; then grep -Fq 'Context:   4096' <<<"$out"; fi
+done
+echo 'PASS: LFM3 Hermes Pi/NUC plans'

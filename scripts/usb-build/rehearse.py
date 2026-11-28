@@ -13,6 +13,9 @@ import urllib.request
 arch, mode = sys.argv[1:]
 root = pathlib.Path("/kit/portable") / arch
 expected = {"Qwen3.5-0.8B-Q4_K_M.gguf", "Qwen3.5-2B-Q4_K_M.gguf", "Qwen3.5-4B-Q4_K_M.gguf"}
+lfm_base = "LFM3-1.7B-Q4_K_M.gguf"
+lfm_adapter = "LFM3-1.7B-harbor-hermes-lora-F16.gguf"
+expected.update({lfm_base, lfm_adapter})
 if arch == "x86_64":
     expected.add("gemma-4-E4B-it-Q4_K_M.gguf")
 assert {p.name for p in (root / "llm").iterdir() if p.is_dir()} >= expected
@@ -33,13 +36,13 @@ def copied(source, dest):
 def run(args, timeout=120):
     return subprocess.run(args, check=True, text=True, stdout=subprocess.PIPE,
                           stderr=subprocess.STDOUT, timeout=timeout).stdout
-def infer(binary, model, work):
+def infer(binary, model, work, adapter=None):
     log = work / "server.log"
     start = time.monotonic()
     with log.open("w+") as f:
         proc = subprocess.Popen([binary, "-m", str(model), "--host", "127.0.0.1",
                                 "--port", "18080", "-c", "8192" if "gemma" in model.name else "4096", "-ngl", "0", "-t", "2",
-                                "-np", "1", "--jinja"], stdout=f, stderr=f)
+                                "-np", "1", "--jinja"] + (["--lora", str(adapter)] if adapter else []), stdout=f, stderr=f)
         try:
             deadline = time.monotonic() + 300
             while time.monotonic() < deadline:
@@ -83,8 +86,13 @@ with tempfile.TemporaryDirectory() as d:
         verify(bundle, ["llama-server", model])
         binary = copied(bundle / "llama-server", work / "llama-server")
         print(arch, model, run([binary,"--version"]).strip(),flush=True)
+        if model == lfm_adapter:
+            continue
         if mode == "full" or (mode == "small" and "0.8B" in model):
             infer(binary, bundle / model, work)
+            if model == lfm_base:
+                verify(root / "llm" / lfm_adapter, ["llama-server", lfm_adapter])
+                infer(binary, bundle / model, work, root / "llm" / lfm_adapter / lfm_adapter)
     bundle = root / "stt"
     verify(bundle, ["whisper-cli", "ggml-base.bin"])
     binary = copied(bundle / "whisper-cli", work / "whisper-cli")

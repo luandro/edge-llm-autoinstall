@@ -15,7 +15,7 @@ while (($#)); do
   esac
 done
 [[ "$jobs" =~ ^[1-9][0-9]*$ ]] && (( jobs <= 8 )) || exit 2
-echo 'Plan: build linux/amd64 + linux/arm64 generic CPU binaries in Debian Bookworm containers; download all safe models and Whisper base; save pinned revisions, checksums, samples and Git snapshot.'
+echo 'Plan: build linux/amd64 + linux/arm64 generic CPU binaries in Debian Bookworm containers; download all safe models, experimental LFM3 Hermes base+adapter (LFM-1.0; review terms before approval), and Whisper base; save pinned revisions, checksums, samples and Git snapshot.'
 cat scripts/usb-build/models.tsv
 echo 'USB: 128GB recommended; allow ~30GB for models/cache/copies plus build cache on Docker storage. Target glibc >=2.36, 64-bit Linux/systemd. No target machine needed.'
 (( ! dry )) || exit 0
