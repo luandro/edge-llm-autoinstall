@@ -73,7 +73,7 @@ Pinned revisions: `sources.lock` (llama/whisper HEADs) and `base.lock` (`debian:
   - Empirical probe on the prepared 0.8B bundle: baseline → empty content (reasoning length 1,071); `reasoning_effort: none` → final content, 0 reasoning; `chat_template_kwargs.enable_thinking: false` → final content; `reasoning_budget: 0` → still empty. Fix: `rehearse.py` now sends `reasoning_effort: none` (commit `84240a2`, CI green).
   - **Second x86_64 full run: PASS** (`REHEARSAL_EXIT=0`, `PASS x86_64 full`). All four models verified checksums and `--version`; both PT summary and PT/EN translation returned non-empty content; Whisper PT/EN sample transcription completed. Measured: 0.8B 6.35/7.72 s, 2B 11.21/14.21 s, 4B 26.44/31.40 s, gemma 42.82/111.03 s; STT 7.82/7.41 s. `--network none` and read-only kit mount, so no WAN and no host mutation.
   - **Quality caveats (human review required, not harness failures):** 0.8B and 2B mangled Friday/nine (`sábado às 19h`, `quinta-feira às nove`); 4B answered correctly; gemma answered correctly but verbosely. eSpeak-based STT outputs are approximate (`"free resident"`, accented-Portuguese distortions). These are synthetic samples, not human or Indigenous-language evaluation.
-  - **ARM64 emulated checks under `qemu-aarch64-static -L <sysroot>`:** all three Pi bundles and the Whisper bundle passed checksum verification; all `llama-server --version` checks and `whisper-cli --help` passed; bounded 0.8B inference produced non-empty content in 62.34 s (12 completion tokens, same "Friday at nine" quality caveat). The first combined run stopped at a 600 s tool timeout during emulated Whisper PT transcription; a longer-timeout rerun is in progress. Emulation speed is not target performance.
+  - **ARM64 emulated checks under `qemu-aarch64-static -L <sysroot>`:** all three Pi bundles and the Whisper bundle passed checksum verification; all `llama-server --version` checks and `whisper-cli --help` passed; bounded 0.8B inference produced non-empty content in 62.34 s (12 completion tokens, same "Friday at nine" quality caveat). **Emulated Whisper STT: UNVERIFIED (time limit)** — transcription did not finish within 600 s and a dedicated rerun also hit 1,800 s; the ARM `whisper-cli` binary itself loads and `--help` runs, and x86_64 STT passed in 7–8 s, so this is QEMU throughput, not a kit defect. Emulation speed is not target performance.
 
 ## 6. Successful USB detection and installation preview — PASS (directory stand-in)
 
@@ -120,7 +120,7 @@ Verified here: `python3 scripts/edge-task.py health` → `API local: lfm3-harbor
 | Skill + lean config, terminal-only vs skill-enabled | PASS |
 | Fresh standard-interface Hermes install, isolated | PASS |
 | x86-64 USB kit in directory stand-in | PASS |
-| ARM64 kit (cross-build + emulated version/inference) | PASS; emulated STT rerun in progress |
+| ARM64 kit (cross-build + emulated version/inference) | PASS; emulated STT UNVERIFIED (QEMU timeout) |
 | Native tests | PASS |
 | Network-disabled container rehearsal (x86_64 full) | PASS |
 | Successful USB detection + install preview | PASS (directory stand-in) |
@@ -133,7 +133,7 @@ Verified here: `python3 scripts/edge-task.py health` → `API local: lfm3-harbor
 ## 12. Remaining risks
 
 1. No physical target device or mounted USB: kit correctness on real Pi 5 / N95 / K11 is unproven.
-2. ARM64 relies on cross-compilation plus emulation because rootless Docker cannot use host binfmt; physical Armv8-A execution is unproven.
+2. ARM64 relies on cross-compilation plus emulation because rootless Docker cannot use host binfmt; physical Armv8-A execution is unproven, and emulated Whisper STT did not complete within 1,800 s (QEMU throughput only).
 3. Groq 8,000 TPM hard per-request ceiling: skill-enabled or uncompressed prompts fail with 413; terminal-only path stays under it.
 4. Real 429s occur on back-to-back trials; serial requests with 45 s cooldown are required.
 5. Port 8080 is occupied on this laptop by the live facilitator service; real `edge-llm` install cannot be exercised here.
@@ -157,7 +157,7 @@ Verified here: `python3 scripts/edge-task.py health` → `API local: lfm3-harbor
 - [x] Fresh participant install via standard interface, isolated
 - [x] Native checks green; CI green
 - [x] x86-64 kit complete with checksums and provenance
-- [x] ARM64 kit complete; emulated version/inference checks green (STT rerun pending)
+- [x] ARM64 kit complete; emulated version/inference checks green (emulated STT UNVERIFIED on QEMU time limit)
 - [x] `--network none` rehearsal outputs reviewed for quality (caveats recorded)
 - [x] Successful USB detection + install preview on prepared media (directory stand-in)
 - [ ] Cloudflare failover validated with operator credentials (deferred)
@@ -180,4 +180,4 @@ Verified here: `python3 scripts/edge-task.py health` → `API local: lfm3-harbor
 - `scripts/usb-build/Dockerfile.cross-arm64`, `scripts/build-arm64-cross.sh` — reproducible ARM64 cross-build path for rootless Docker hosts.
 - `WORKSHOP_READINESS.md` — this report.
 
-All changed scripts pass `bash -n` / `py_compile`; all commits were pushed and GitHub CI rerun green (`46079341182`, `46083151442`, and the final run for this commit). No credentials, private config or sensitive logs were committed; the prepared kit and measurements live only under `/tmp/opencode/workshop/`.
+All changed scripts pass `bash -n` / `py_compile`; all commits were pushed and GitHub CI rerun green (`46079341182`, `46083151442`, `46084967841`). No credentials, private config or sensitive logs were committed; the prepared kit and measurements live only under `/tmp/opencode/workshop/`.
