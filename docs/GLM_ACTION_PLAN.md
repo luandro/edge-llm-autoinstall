@@ -293,3 +293,18 @@ Standing rule: nothing outside `## Requires physical target` may flip "Physical 
   The `8 "answer"` + `2 "stt"` acceptance check still applies.
 - **A1 cost note:** a single 5,400 s QEMU run is a deliberate, bounded experiment; it needs an operator decision on compute time before being started, and a 124 exit must be recorded as "unattainable under QEMU", never as a Pi result.
 - **A2 feasibility note:** bind-mounting fixture `/proc/cpuinfo` and `/proc/meminfo` may be rejected by rootless Docker; if so, record it as a failed plumbing attempt and use T1 on the real target rather than relaxing the isolation.
+
+## Superseding senior review (Codex `gpt-6.2-sol`, low effort, 2026-11-28)
+
+Read this before A1–A5, O1–O4 or T1–T2. A read-only Codex senior review (job `task-mwzyl7q2-u78qa1`) found the following blockers; it concluded that physical-deployment NO-GO is justified:
+
+- **A1:** not a prerequisite. Acceptance must check exact status for both PT and EN and an actual decoded segment; `^exit=` prefix matches are unsafe. A timeout proves only that the capped run did not finish.
+- **A2:** not a required gate. The image build needs network and the rootless `/proc/cpuinfo` bind may not override the guest value (empirically, a test run still reported `ARMv8 Processor`). Capture Docker's real exit status; `echo "exit=$?"` after `tee`/pipe can mask failure. A fixture pass proves plumbing only.
+- **A3:** original command rejected. `--exclude='*.env'` does not cover inline credentials or other secret files, `rsync` copies before any guard, zero-match `grep -c` exits 1, and `cd "$1"` is applied to a `SHA256SUMS` file path. Use a fresh destination, an allowlist, a nonempty expected manifest set, and per-manifest checks from the parent directory.
+- **A4:** use the senior addendum's x86-only command as the sole command; require `PASS x86_64 full` and an identified reviewer with exactly one allowed verdict per fixed output ID.
+- **A5:** invoke the isolated executable with both home variables, fail on unreadable config, and record only redacted effective values; never `grep -r` a profile tree into evidence.
+- **O1/O2:** cost/privacy approval must precede any live `--yes` probe; keep fallback routes disabled until a free/ZDR/no-training route is verified and real failover behavior is tested.
+- **T1/T2:** bind approval to the exact device, filesystem, kit and installer revisions, OS/glibc/systemd state, free space and pre-existing 8080 listeners; require full translation/summary quality against fixed references, native Pi detection (`pi4/pi8/pi16`), real STT timing, USB-removed and post-reboot checks. Stage fixtures on local storage, not USB.
+- **Q5:** the kit lived under `/tmp` and was cleared by a server restart on 2026-11-28; its embedded checkout was `0f14394` while this plan reviews `0b96287`. Rebuild and freeze a sanitized kit before any target session.
+
+Adopted in the repository: preview-first `START-HERE.txt`, pinned/isolated participant commands, narrowed claims in `WORKSHOP_READINESS.md`, and the evidence-loss record. The rest remains a correction backlog, not completed work.

@@ -158,7 +158,7 @@ printf '%s\n' 'Synthetic eSpeak examples (not human or Indigenous language evalu
  'PT: A rádio comunitária entrevistou três moradores. A reunião será na sexta-feira, às nove horas.' \
  'EN: The community radio interviewed three residents. The meeting is on Friday at nine in the morning.' > "$root/samples/REFERENCES.txt"
 (cd "$root/samples" && sha256sum sample-*.wav REFERENCES.txt > SHA256SUMS)
-printf 'Abra a pasta repo-%s.\n1. bash install.sh --offline --mode safe\n2. bash install-stt.sh\nLeia docs/WORKSHOP_USB.md. Hermes online: docs/HERMES_WORKSHOP.md.\nNo laptop: bash scripts/rehearse-usb.sh --usb /ponto/de/montagem\n' "$rev" > "$root/START-HERE.txt"
+printf 'Abra a pasta repo-%s.\n1. PRIMEIRO, apenas pré-visualização: bash install.sh --offline --usb "$PWD/.." --mode safe --dry-run\n2. Leia a pré-visualização e obtenha aprovação humana explícita.\n3. Só depois: bash install.sh --offline --usb "$PWD/.." --mode safe\n4. Opcional, após aprovação: bash install-stt.sh --usb "$PWD/.."\nLeia docs/WORKSHOP_USB.md. Hermes online: docs/HERMES_WORKSHOP.md.\nNo laptop: bash scripts/rehearse-usb.sh --usb /ponto/de/montagem\n' "$rev" > "$root/START-HERE.txt"
 printf '%s\n' "$rev" > "$root/.portable-complete.tmp"
 mv "$root/.portable-complete.tmp" "$root/.portable-complete"
 sync

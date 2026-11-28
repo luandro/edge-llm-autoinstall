@@ -42,9 +42,15 @@ Depois crie um perfil novo. **Nunca sobrescreva um perfil existente:**
 
 ```bash
 export HERMES_HOME=/tmp/hermes-participante
+export HOME_PARTICIPANTE=/tmp/home-participante
+participant() { HERMES_HOME="$HERMES_HOME" HOME="$HOME_PARTICIPANTE" \
+  "$HERMES_HOME/hermes-agent/.hermes/bin/hermes" -p participant "$@"; }
 "$HERMES_HOME/hermes-agent/.hermes/bin/hermes" \
   profile create participant --no-skills --no-credentials --no-alias
 ```
+
+Use sempre a função `participant` (executável isolado e os dois caminhos
+isolados definidos) nos comandos abaixo — nunca o `hermes` do PATH da máquina.
 
 `--no-credentials` impede a cópia de chaves do perfil de origem;
 `--no-alias` impede a criação de atalho em `~/.local/bin`.
@@ -52,15 +58,15 @@ export HERMES_HOME=/tmp/hermes-participante
 ## 3. Instale apenas a skill revisada
 
 ```bash
-hermes -p participant skills install \
-  https://github.com/luandro/edge-llm-autoinstall/raw/main/SKILL.md -y
+participant skills install \
+  https://github.com/luandro/edge-llm-autoinstall/raw/0b962876469981ceb62e7d34d9b135984fea0a6b/SKILL.md -y
 ```
 
 O `SKILL.md` é curto (4,7 KB); os detalhes ficam em `references/` e são
 buscados apenas quando necessários. Confira:
 
 ```bash
-hermes -p participant skills list | grep edge-llm-autoinstall
+participant skills list | grep edge-llm-autoinstall
 ```
 
 ## 4. Mescle a configuração enxuta (com backup)
@@ -72,7 +78,7 @@ O arquivo efetivo do perfil é `$HERMES_HOME/profiles/participant/config.yaml`
 cp "$HERMES_HOME/profiles/participant/config.yaml" \
    "$HERMES_HOME/profiles/participant/config.yaml.bak"
 # Mescle config/workshop-lean.yaml no config.yaml do perfil participant.
-hermes -p participant config get platform_toolsets.cli   # deve mostrar: - terminal
+participant config get platform_toolsets.cli   # deve mostrar: - terminal
 ```
 
 Verificação medida no perfil novo e isolado: `terminal` como única toolset,
@@ -93,7 +99,7 @@ isso é conhecido e aceito.
 ## 5. Meça antes de gastar cota
 
 ```bash
-hermes -p participant prompt-size --platform cli --json
+participant prompt-size --platform cli --json
 python3 scripts/workshop-eval.py --help
 ```
 

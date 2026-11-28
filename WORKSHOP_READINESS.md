@@ -73,7 +73,7 @@ Pinned revisions: `sources.lock` (llama/whisper HEADs) and `base.lock` (`debian:
   - Empirical probe on the prepared 0.8B bundle: baseline → empty content (reasoning length 1,071); `reasoning_effort: none` → final content, 0 reasoning; `chat_template_kwargs.enable_thinking: false` → final content; `reasoning_budget: 0` → still empty. Fix: `rehearse.py` now sends `reasoning_effort: none` (commit `84240a2`, CI green).
   - **Second x86_64 full run: PASS** (`REHEARSAL_EXIT=0`, `PASS x86_64 full`). All four models verified checksums and `--version`; both PT summary and PT/EN translation returned non-empty content; Whisper PT/EN sample transcription completed. Measured: 0.8B 6.35/7.72 s, 2B 11.21/14.21 s, 4B 26.44/31.40 s, gemma 42.82/111.03 s; STT 7.82/7.41 s. `--network none` and read-only kit mount, so no WAN and no host mutation.
   - **Quality caveats (human review required, not harness failures):** 0.8B and 2B mangled Friday/nine (`sábado às 19h`, `quinta-feira às nove`); 4B answered correctly; gemma answered correctly but verbosely. eSpeak-based STT outputs are approximate (`"free resident"`, accented-Portuguese distortions). These are synthetic samples, not human or Indigenous-language evaluation.
-  - **ARM64 emulated checks under `qemu-aarch64-static -L <sysroot>`:** all three Pi bundles and the Whisper bundle passed checksum verification; all `llama-server --version` checks and `whisper-cli --help` passed; bounded 0.8B inference produced non-empty content in 62.34 s (12 completion tokens, same "Friday at nine" quality caveat). **Emulated Whisper STT: UNVERIFIED (time limit)** — transcription did not finish within 600 s and a dedicated rerun also hit 1,800 s; the ARM `whisper-cli` binary itself loads and `--help` runs, and x86_64 STT passed in 7–8 s, so this is QEMU throughput, not a kit defect. Emulation speed is not target performance.
+  - **ARM64 emulated checks under `qemu-aarch64-static -L <sysroot>`:** all three Pi bundles and the Whisper bundle passed checksum verification; all `llama-server --version` checks and `whisper-cli --help` passed; bounded 0.8B inference produced non-empty content in 62.34 s (12 completion tokens, same "Friday at nine" quality caveat). **Emulated Whisper STT: UNVERIFIED (time limit)** — transcription did not finish within 600 s and a dedicated rerun also hit 1,800 s; the ARM `whisper-cli` binary itself loads and `--help` runs, and x86_64 STT passed in 7–8 s. The cause is not established: native ARM behavior remains UNVERIFIED. Emulation speed is not target performance.
 
 ## 6. Successful USB detection and installation preview — PASS (directory stand-in)
 
@@ -83,7 +83,7 @@ Prepared directory stand-in: `/tmp/opencode/workshop/edge-llm-usb/edge-llm-usb`.
 EDGE_LLM_TEST_PROFILE=pi4 bash install.sh --offline --usb "$KIT" --mode safe --dry-run
 ```
 
-Output includes the detected `portable/x86_64/llm/Qwen3.5-0.8B-Q4_K_M.gguf (safe CPU)`, `Hardware: pi4`, `Mode: safe`, `GGUF`, `Backend: cpu` and `API: http://127.0.0.1:8080/v1` — i.e. a successful detection and installation preview with **actual prepared media** (a directory stand-in, not a mounted physical USB).
+Output includes the detected `portable/x86_64/llm/Qwen3.5-0.8B-Q4_K_M.gguf (safe CPU)`, `Hardware: pi4`, `Mode: safe`, `GGUF`, `Backend: cpu` and `API: http://127.0.0.1:8080/v1` — i.e. a successful detection and installation preview with a **prepared directory stand-in** — not mounted physical media and not a target test.
 
 On this laptop `workshop-install.sh --dry-run` deliberately strips `EDGE_LLM_TEST_PROFILE` and therefore fails the unsupported-CPU check (Intel i7-8650U); that is expected and documents why the direct command was used. No physical target is implied.
 
@@ -126,7 +126,7 @@ Verified here: `python3 scripts/edge-task.py health` → `API local: lfm3-harbor
 | Successful USB detection + install preview | PASS (directory stand-in) |
 | Cloudflare/OpenRouter failover | UNVERIFIED (deferred, no credentials) |
 | Local-hermes bounded backup | PASS |
-| Manual CLI fallback | PASS on loopback/offline rehearsal; real systemd install target-only |
+| Manual CLI fallback | PARTIAL — loopback CLI and offline rehearsal pass; combined install + service lifecycle unverified |
 | Portuguese instructions | PASS |
 | Physical target install/service/inference | UNVERIFIED (no Pi/N95/K11) |
 
@@ -180,4 +180,24 @@ Verified here: `python3 scripts/edge-task.py health` → `API local: lfm3-harbor
 - `scripts/usb-build/Dockerfile.cross-arm64`, `scripts/build-arm64-cross.sh` — reproducible ARM64 cross-build path for rootless Docker hosts.
 - `WORKSHOP_READINESS.md` — this report.
 
-All changed scripts pass `bash -n` / `py_compile`; all commits were pushed and GitHub CI rerun green (`46079341182`, `46083151442`, `46084967841`). No credentials, private config or sensitive logs were committed; the prepared kit and measurements live only under `/tmp/opencode/workshop/`.
+All changed scripts pass `bash -n` / `py_compile`; all commits were pushed and GitHub CI rerun green (`46079341182`, `46083151442`, `46084967841`, `46091156698`). No credentials, private config or sensitive logs were committed.
+
+**Post-session evidence loss (2026-11-28):** a harness server restart cleared `/tmp/opencode/workshop/`, including the prepared kit, both isolated Hermes homes, raw per-trial JSON, Phase 1 `REPORT.md` and the mock logs. Only the committed summaries in this report and `REPORT_PHASE_2.md` survive. Any action that references `$KIT`, the ARM sysroot or the isolated homes requires rebuilding that state first; this is why preserving a sanitized, verified kit outside `/tmp` is now the highest-value laptop action.
+
+## 16. Senior review outcome (Codex `gpt-6.2-sol`, low effort, 2026-11-28)
+
+Called after the GLM delegation because the installed launcher pinned `glm-5.3-flash` instead of the intended 5.4. Codex reviewed `WORKSHOP_READINESS.md`, `docs/GLM_ACTION_PLAN.md` and the installer/scripts read-only; job `task-mwzyl7q2-u78qa1`, no edits or network calls, verdict: **the NO-GO for physical deployment is justified**.
+
+**Adopted corrections**
+- `prepare-usb.sh` now generates a `START-HERE.txt` that starts with `--dry-run`, human approval, and only then install/STT — previously it opened with the install commands.
+- Participant guide now uses the exact isolated Hermes executable with both isolated home variables, a function `participant()`, and a pinned skill revision instead of `main` and a bare `hermes`.
+- Claims narrowed: emulated Whisper cause is "not established", preview media is a "directory stand-in", fallback status stays `PARTIAL`, and PT↔EN direction is stated explicitly.
+- The lost `/tmp` evidence is recorded above; A3 (durable kit preservation) is now a prerequisite, not an optional improvement.
+
+**Rejected / still open from Codex's blockers**
+- A1 is not a prerequisite; A2 is not a required gate. Both need corrected acceptance criteria (exact exit status, both languages, real decoded segments, redacted evidence).
+- Original A4 wrapper command rejected; use the x86-only rehearsal with exit status captured through `tee` and a `PASS x86_64 full` marker.
+- A3's original `rsync`/`tar` and checksum sweep rejected (could archive credentials; `cd` into a file). Preserve a sanitized inventory with an allowlist instead.
+- A5 must use the isolated binary and record only redacted effective values; raw recursive greps can print credential lines.
+- T1/T2 gates must bind approval to an identified device and kit revision, require full translation/summary quality against fixed references, verify service ownership and post-reboot persistence, and use a Pi-specific run sheet.
+- Cloudflare/OpenRouter stay disabled until cost/privacy approval precedes any live probe.
