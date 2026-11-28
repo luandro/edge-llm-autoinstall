@@ -23,7 +23,7 @@ bash install.sh --agent-model mini-agent
 bash install.sh --mode safe   # restore the general-purpose baseline
 ```
 
-The **LFM3-1.7B Hermes RL LoRA** is a **manual research experiment only**, not an installed option. Authors evaluated a 64K+ context workflow and did not re-evaluate the GGUF adapter. An 8K Pi run is not equivalent; do not promote a specialist as the default PT-BR summarizer/translator. See `references/troubleshooting.md`.
+The **LFM3-1.7B Hermes RL LoRA** is now an **experimental installed option** and the preferred agent candidate for Pi/NUC (`--agent-model lfm3-hermes`, including updated portable USB). See `docs/LFM3_EDGE_AGENT.md`. Authors evaluated a 64K+ context workflow and did not re-evaluate the GGUF adapter. An 8K Pi run is not equivalent; do not promote a specialist as the default PT-BR summarizer/translator. See `references/troubleshooting.md`.
 
 ## K11 optional `--model` choices
 
@@ -31,4 +31,4 @@ The **LFM3-1.7B Hermes RL LoRA** is a **manual research experiment only**, not a
 
 ## Lab transfer and hardware readiness
 
-Read `docs/LOCAL_HERMES_TRANSFER.md` in a full checkout before experimenting with LFM3, Laya or ARM backends. The separate [local-hermes](https://github.com/luandro/local-hermes) repo is the active ThinkPad test lab. Transfer findings with their evidence status; do not promote defaults based on ThinkPad or third-party Pi measurements. The Q4 LFM3 base/adapter pair is benchmark-only, not an installer flag. Keep Pi 4 GB context cap and safe defaults; a 2K–4K standalone model test is not a full Hermes test. Collect memory PSI, RSS, major faults, swap deltas and thermal metrics where available. Never automatically adjust kernel/swap settings or load multiple neural models at once on 4 GB. Laya and multi-model scheduling remain unimplemented.
+Read `docs/LOCAL_HERMES_TRANSFER.md` in a full checkout before experimenting with LFM3, Laya or ARM backends. The separate [local-hermes](https://github.com/luandro/local-hermes) repo is the active ThinkPad test lab. Transfer findings with their evidence status; do not promote defaults based on ThinkPad or third-party Pi measurements. The Q4 LFM3 base/adapter pair is benchmarkable and selectable with `--agent-model lfm3-hermes` (adapter), and a trusted locally merged GGUF is preferred if present. Keep Pi 4 GB context cap and safe defaults; a 2K–4K standalone model test is not a full Hermes test. Collect memory PSI, RSS, major faults, swap deltas and thermal metrics where available. Never automatically adjust kernel/swap settings or load multiple neural models at once on 4 GB. Laya and multi-model scheduling remain unimplemented.

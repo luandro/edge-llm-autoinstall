@@ -6,7 +6,7 @@ Reviewed 2026-11-27. **Hardware validation pending** for Pi 5 (4/8/16 GB), N95/N
 
 | Finding | Evidence status | Deployment decision |
 | --- | --- | --- |
-| Local Hermes Q4 LFM3 + runtime LoRA, 64K context, one slot | ThinkPad reported in [LEARNINGS](https://github.com/luandro/local-hermes/blob/main/LEARNINGS.md) | Q4 base/adapter paired benchmark candidates; not an installed agent profile. |
+| Local Hermes Q4 LFM3 + runtime LoRA, 64K context, one slot | ThinkPad reported in [LEARNINGS](https://github.com/luandro/local-hermes/blob/main/LEARNINGS.md) | Q4 base/adapter paired benchmarks; now selectable as experimental LFM3 agent profile (see update below). |
 | Lean prompt 15,815 → 4,175 tokens; warm disk 58→39 s, catalog 41→35 s | Local reported individual runs, not statistical averages; some runs hit 600 s | Selective schemas, compact observations, bounded workflows. Do not generalize latency to Pi. |
 | Hybrid checkpoints reduce repeated prefill | ThinkPad reported | Check model/runtime-specific support and measure actual uncached tokens; do not universally copy cache settings. |
 | n-gram speculation and anonymous loading | Rejected in tested ThinkPad configuration; THP never engaged | Keep baseline mmap; speculation off on this model until new evidence. Not universal exclusions. |
@@ -50,3 +50,7 @@ For the actual inference PID and agent process tree: collect /proc/PID/status (V
 Every lab experiment promoted or rejected should document date, baseline/candidate commits, hardware, OS, runtime/model/quant/context, config/dataset hashes, sample counts, cold/warm latency, verified success, total/new tokens, tool/model calls, memory/pressure and failure reasons; include reproduction, rollback and applicability. Label as local-measured, external-reported, hypothesis, target-measured or rejected. Default changes need independent target-class tests. Keep raw transcripts, credentials and community data private; preserve third-party license notices if copying code (Potato OS Apache-2.0). No source code from Potato OS is copied here. See also [Potato Inferno](https://github.com/potato-os/inferno) for future supervisor review.
 
 No Pi hardware execution or full Hermes validation was performed by this documentation/catalog update.
+
+## 2026-11-28 transfer update
+
+See [LFM3 edge agent](LFM3_EDGE_AGENT.md). The ThinkPad lab adopted **merged Q4_K_M** (BF16 merge then quantization) after runtime LoRA produced 136 CPU_REPACK fallback warnings; merged produced zero, prefill 18.8→41.0 tok/s, 2/2 passes in both arms. This supersedes the earlier runtime-LoRA-only guidance. It also rejected Q4_0 and speculative decoding on that host; no blanket ARM conclusion. Prefer the merged model where supplied, keep the publisher's adapter path on USB, measure cold/warm separately. The lab's rules-first routing, TF-IDF/LogReg proposed escalation and Laya non-default decision are documented in its [decision-model research](https://github.com/luandro/local-hermes/blob/main/research/decision-models-and-deterministic-shortcuts.md). The existing safe general model remains rollback; no physical tests completed.

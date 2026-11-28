@@ -34,3 +34,14 @@ Updated 2026-11-23. These findings come from the linked public sources. **The sh
 5. Run full integration tests on the Pi 8/16 GB, N95/N97 16 GB and K11 32 GB before changing any automatic default.
 
 **Research limitations:** no third-party pt-BR figure or Radeon 780M decode figure in this document is a measurement performed on the user's exact machines. The Gemini share `https://share.gemini.google/7Qfa2CQS836x` needs a text/Markdown/PDF export for reliable comparison against this shortlist.
+
+## 2026-11-28 research addendum: 4 GB Pi, CPU-only PT-BR
+
+| Task | First candidate | Alternative / status |
+| --- | --- | --- |
+| STT | [whisper.cpp](https://github.com/ggml-org/whisper.cpp) multilingual base (already on USB), use `-l pt` | multilingual small for accuracy; [Parakeet TDT v3 pt-BR 30s ONNX](https://huggingface.co/alefiury/parakeet-tdt-v3-ptBR-30s-onnx) and sherpa-onnx as measured candidates, not shipped by this update. |
+| PT-BR → EN | [Helsinki-NLP/opus-mt-ROMANCE-en](https://huggingface.co/Helsinki-NLP/opus-mt-ROMANCE-en) | Convert/test CTranslate2 CPU INT8 with exact tokenizer; compare Argos/Bergamot and LLM baseline. |
+| EN → PT-BR | [Helsinki-NLP/opus-mt-tc-big-en-pt](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-pt), target prefix `>>pob<<` | Compare NLLB distilled (check license), Marian alternatives and LLM baseline. |
+| Summary | Qwen3 0.6B or [Qwen3 1.7B GGUF](https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF) as compact reference; current Qwen3.5 0.8B/2B profiles remain installed options | LFM3 base vs Hermes variant; Gemma 3 1B, PTT5, extractive TextRank/MiniLM research candidates. No proof the Hermes adapter improves summaries. |
+
+Pipeline: STT → timestamped transcript → stop/unload STT → chunk at ~1,200–1,600 tokens adjusted to actual context overhead → grounded structured summaries (facts, decisions, actions, owners, dates, unknowns, source spans) → deduplicate and reconcile → unload LLM → translate only final concise summary if requested. Keep raw transcript locally with explicit consent. On 4 GB stop `edge-llm` before heavy STT/NMT if needed; restore deliberately; do not silently send data to cloud. Measure total peak memory, wall time, WER/CER and false speech on silence, translation chrF and human adequacy (names/numbers/negation/dialect), summary factual precision/recall and unsupported claims. No trustworthy Pi-5 PT↔EN CTranslate2 throughput established; no physical Pi/NUC measurements in this repo. Dedicated MT models and sequential scheduler are research candidates, not installed, downloaded or claimed functional. Existing USB still includes multilingual Whisper base only for STT. See [LFM3 agent profile](LFM3_EDGE_AGENT.md).

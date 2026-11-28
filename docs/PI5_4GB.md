@@ -40,3 +40,7 @@ References: [Pi5-LLM](https://github.com/Jiaming-Liuu/Pi5-LLM), [4 GB Pi transla
 ## New candidate: LFM3 and lessons from Potato OS (2026-11-27)
 
 See [deployment readiness and evidence ledger](LOCAL_HERMES_TRANSFER.md). A [third-party Pi 5 2 GB test](https://peppe8o.com/install-llama-cpp-raspberry-pi/) reported about 9 generation tok/s and ~1.7–1.76 GiB peak for **base LFM3 Q4**, not the Hermes adapter or full agent. Test the Q4 base/LoRA pair via the explicit benchmark names, initially at 2048 context. Safe/best defaults and 4096 installer cap remain unchanged. Potato OS officially supports Pi 5 8/16 GB, not 4 GB. Borrow its diagnostics and ARM runtime testing, not its OS image or large MoE defaults. Start with rules/TF-IDF routing, no resident Laya by default, and measure sequential STT/NMT/LLM scheduling when implemented. Never misreport the physical context to Hermes; full agent support requires separate validation.
+
+## 2026-11-28 LFM3 agent experiment
+
+Use `bash install.sh --agent-model lfm3-hermes --dry-run` for the preferred 1.7B Hermes-specific experiment (4K context, one CPU slot), then approve the install; updated v2 USB supports the same command with `--offline`. This is not stock Hermes-compatible at 4K. Use direct API/validated lean harness only; retain Qwen3.5 0.8B safe for rollback. See [LFM3 profiles and evidence](LFM3_EDGE_AGENT.md).

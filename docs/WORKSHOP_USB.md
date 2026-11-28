@@ -47,3 +47,7 @@ No cloud routes, proxies or credentials; it only calls loopback. For a separate 
 ## One bounded installation command for Hermes
 
 Preferred: `bash workshop-install.sh --usb /actual/mount --dry-run`, then the same without --dry-run after human approval. This wraps the LLM and STT installation, saves logs under ~/.local/state/edge-workshop, checks the port, preserves existing service/launcher copies, waits for the API and makes one actual translation request. It does not benchmark quality, run Whisper concurrently or automatically roll back. Use --llm-only only as an explicit fallback. Sudo approval still belongs to the human. If it fails, inspect the log before retrying. Keep the individual scripts as manual recovery commands.
+
+### Experimental LFM3 Hermes on Pi/NUC (2026-11-28)
+
+New media includes the LFM3 Q4 base and F16 LoRA in separate checksum bundles. Review LFM-1.0 terms before approving preparation. After rebuilding the kit on the laptop, run `bash install.sh --offline --agent-model lfm3-hermes --dry-run`, approve, then repeat without `--dry-run`. Full x86 rehearsal tests base and runtime-adapter text inference, not real tool execution. The existing safe models remain on media, and `--mode safe` restores the prior profile. See [LFM3 profile](LFM3_EDGE_AGENT.md). The full stock Hermes runtime is not made offline by this update.

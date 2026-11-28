@@ -34,7 +34,7 @@ bash install.sh --offline --mode safe
 bash install-stt.sh
 ```
 
-Automatic USB detection, explicit --usb PATH, strict --offline and --online bypass are supported. USB v2 includes both architectures, all safe weights, pinned revisions, SHA256, multilingual Whisper CLI, synthetic samples and a reviewed Hermes bootstrap script (Hermes itself still needs WAN). No target downloads/build; requires 64-bit Linux/systemd and glibc >=2.36. Laptop rehearsal uses offline containers; real hardware validation pending. [Workshop guide, Hermes cloud providers, acceptance gates](docs/WORKSHOP_USB.md).
+Automatic USB detection, explicit --usb PATH, strict --offline and --online bypass are supported. USB v2 includes both architectures, all safe weights plus experimental LFM3 base and adapter, pinned revisions, SHA256, multilingual Whisper CLI, synthetic samples and a reviewed Hermes bootstrap script (Hermes itself still needs WAN). No target downloads/build; requires 64-bit Linux/systemd and glibc >=2.36. Laptop rehearsal uses offline containers; real hardware validation pending. [Workshop guide, Hermes cloud providers, acceptance gates](docs/WORKSHOP_USB.md).
 
 ## Use as a Hermes Agent skill
 
@@ -65,7 +65,7 @@ Read [SKILL.md](SKILL.md) for the complete procedure and safeguards. To fetch fu
 
 ## Relationship to local-hermes
 
-[local-hermes](https://github.com/luandro/local-hermes) is the live ThinkPad experiment lab. This repo prepares hardware-specific deployments and inherits reproducible lessons, not unvalidated performance claims. See [deployment readiness and Potato OS findings](docs/LOCAL_HERMES_TRANSFER.md). Safe/best defaults are unchanged; LFM3 Q4 base/LoRA are optional benchmark candidates only.
+[local-hermes](https://github.com/luandro/local-hermes) is the live ThinkPad experiment lab. This repo prepares hardware-specific deployments and inherits reproducible lessons, not unvalidated performance claims. See [deployment readiness and Potato OS findings](docs/LOCAL_HERMES_TRANSFER.md). Safe/best general-purpose defaults are unchanged. **LFM3 1.7B Hermes Q4_K_M is the recommended experimental agent profile for Pi and N95/N97**, selectable online or from the updated portable USB. Prefer a locally merged GGUF; runtime LoRA remains the portable fallback.
 
 ## Run automated GPU benchmarks with the official Colab CLI
 
@@ -98,7 +98,7 @@ bash benchmark.sh --models edge --suite full --runs 3
 
 - **small:** Qwen3.5 0.8B, BotPsy 0.8B, mini-agent-v2 1.5B and Qwen3.5 2B (all Q4).
 - **edge:** those four plus Qwen3.5 4B and Gemma 4 E4B.
-- **adapter:** LFM3 1.7B Q8 unchanged base versus GGUF Hermes LoRA; review LFM license. For the lab's Q4 comparison, select `--models lfm3_base_q4,lfm3_hermes_q4` explicitly (see readiness guide).
+- **adapter:** LFM3 1.7B Q4/Q8 unchanged base versus GGUF Hermes LoRA; review LFM license. For the lab's Q4-only comparison, select `--models lfm3_base_q4,lfm3_hermes_q4` explicitly (see readiness guide).
 - **large / all:** K11 and Pi experimental large models, requiring `--allow-large` and adequate RAM, storage and explicitly raised download budget.
 - Specify exact candidates: `--models qwen08,botpsy,mini_agent`.
 
@@ -132,9 +132,14 @@ These are **experimentally selectable**, not new safe/best defaults. They optimi
 | --- | --- | --- | --- |
 | [BotPsy 0.8B](https://huggingface.co/qvac/BotPsy-0.8B-GGUFs), Q4 on Pi 4 GB / Q8 elsewhere | `--agent-model botpsy` | Simple, English-first tool routing and choosing not to call tools | **Publisher's GGUF tests**: BFCL v4 43.5% Q4 / 44.2% Q8. Not Hermes or Pi/N95/K11-tested. Enables its evaluated thinking template. |
 | [mini-agent-v2 1.5B](https://huggingface.co/F-A-I-L/mini-agent-v2), Q4 on Pi 4 GB / Q5 elsewhere | `--agent-model mini-agent` | Bash, Python, tool invocation; guided short tasks | **Author's bf16 tests**: BFCL 86.2% non-live, 65.7% live, Bash 50.3%, Python 66.2%. GGUF quants *not* re-benchmarked; no long autonomous loops. |
-| [LFM3 1.7B Hermes LoRA](https://huggingface.co/harness-hub/LFM3-1.7B-hermes) | **Research only; not automated** | Hermes data-analysis tasks; compare adapter to unchanged base | 78% vs 62% on 150 data tasks; worse on 40 harder repository tasks; author used **64K+ context** and did **not** evaluate GGUF. [Manual test instructions](docs/AGENT_MODELS.md). |
+| [LFM3 1.7B Hermes LoRA](https://huggingface.co/harness-hub/LFM3-1.7B-hermes) | `--agent-model lfm3-hermes` | Hermes data-analysis tasks; compare adapter to unchanged base | 78% vs 62% on 150 data tasks; worse on 40 harder repository tasks; author used **64K+ context** and did **not** evaluate GGUF. [Installation and validation](docs/LFM3_EDGE_AGENT.md). |
 
 ```bash
+bash install.sh --agent-model lfm3-hermes --dry-run
+bash install.sh --agent-model lfm3-hermes
+# On prepared portable USB:
+bash install.sh --offline --agent-model lfm3-hermes --dry-run
+bash install.sh --offline --agent-model lfm3-hermes
 bash install.sh --agent-model botpsy --dry-run
 bash install.sh --agent-model botpsy
 bash install.sh --agent-model mini-agent
@@ -280,3 +285,7 @@ Installation is currently validated by shell syntax and hardware-selection dry r
 Workshop backup: `python3 scripts/edge-task.py summary --file news.txt` uses only localhost; `scripts/cloud-probe.py` tests one synthetic provider tool call with explicit approval. See [lean Hermes configuration](docs/HERMES_WORKSHOP.md) and [laptop rehearsal handoff](docs/WORKSHOP_LAPTOP_REHEARSAL_PROMPT.md).
 
 For one bounded, human-approved workshop installation: `bash workshop-install.sh --usb /actual/mount --dry-run`, then repeat without `--dry-run`. It installs the LLM and Whisper CLI, logs locally and verifies actual text inference. Manual fallback remains available.
+
+## New agent and task research (2026-11-28)
+
+See [LFM3 edge agent profiles, local-Hermes measurements and evaluation gates](docs/LFM3_EDGE_AGENT.md) and [speech, summary and translation candidates](docs/TASK_RESEARCH_NOTES.md). LFM3 is not a proven replacement for the general-purpose text models; stock Hermes cannot run against a 4K context endpoint without a separately validated lean harness. On NUC the experimental 64K profile must pass physical memory and latency tests. No remote fallback is automatic.
