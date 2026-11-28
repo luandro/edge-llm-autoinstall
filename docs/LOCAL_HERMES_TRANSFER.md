@@ -54,3 +54,7 @@ No Pi hardware execution or full Hermes validation was performed by this documen
 ## 2026-11-28 transfer update
 
 See [LFM3 edge agent](LFM3_EDGE_AGENT.md). The ThinkPad lab adopted **merged Q4_K_M** (BF16 merge then quantization) after runtime LoRA produced 136 CPU_REPACK fallback warnings; merged produced zero, prefill 18.8→41.0 tok/s, 2/2 passes in both arms. This supersedes the earlier runtime-LoRA-only guidance. It also rejected Q4_0 and speculative decoding on that host; no blanket ARM conclusion. Prefer the merged model where supplied, keep the publisher's adapter path on USB, measure cold/warm separately. The lab's rules-first routing, TF-IDF/LogReg proposed escalation and Laya non-default decision are documented in its [decision-model research](https://github.com/luandro/local-hermes/blob/main/research/decision-models-and-deterministic-shortcuts.md). The existing safe general model remains rollback; no physical tests completed.
+
+## Reopen the Pi harness experiment
+
+The historical ~21.3K Pi prompt is not evidence of intrinsic upstream overhead; the unpublished local-pi configuration remains unavailable. See [Pi research](PI_AGENT_RESEARCH.md) for isolated CLI/Core comparisons and [next phase](PI_TELEGRAM_PLAN.md) for optional Telegram transport and evaluation. Keep local-hermes as lab; do not bypass its context guard or promote untested defaults.

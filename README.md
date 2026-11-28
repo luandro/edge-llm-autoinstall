@@ -289,3 +289,7 @@ For one bounded, human-approved workshop installation: `bash workshop-install.sh
 ## New agent and task research (2026-11-28)
 
 See [LFM3 edge agent profiles, local-Hermes measurements and evaluation gates](docs/LFM3_EDGE_AGENT.md) and [speech, summary and translation candidates](docs/TASK_RESEARCH_NOTES.md). LFM3 is not a proven replacement for the general-purpose text models; stock Hermes cannot run against a 4K context endpoint without a separately validated lean harness. On NUC the experimental 64K profile must pass physical memory and latency tests. No remote fallback is automatic.
+
+### Next phase: lightweight Pi agent + Telegram
+
+[Pi harness research](docs/PI_AGENT_RESEARCH.md) reopens the prior Pi experiment: the old 21.3K prompt was not a clean upstream baseline. [Pi + Telegram implementation and validation plan](docs/PI_TELEGRAM_PLAN.md) covers isolated Pi, matched LFM3 Pi/Hermes adapters, task-specific models, optional reviewed Telegram extension, voice, offline packaging and tests. Pi is the priority harness candidate on 4 GB, **not yet installed or selected by the installer**; existing Hermes and safe profiles remain unchanged. Telegram requires network even when inference is local.
